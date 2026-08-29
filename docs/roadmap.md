@@ -20,12 +20,12 @@ Goal: a real database with a schema that makes double-booking impossible.
 - [x] **(V)** PostgreSQL 17 installed, running as a service on 5432
 - [x] **(V)** `CREATE DATABASE dental_clinic`
 - [x] **(V)** Buffer constraint design settled in `psql` — ADR-0004
-- [ ] **(C)** Root `package.json` with npm workspaces: `server`, `client`, `shared`
-- [ ] **(C)** Scaffold `server/` — Express + TypeScript + `tsx` for dev
-- [ ] **(C)** Scaffold `client/` — Vite + React + TypeScript + Tailwind
-- [ ] **(C)** Scaffold `shared/` — TypeScript package for zod schemas
-- [ ] **(C)** `.env.example`, then **(V)** real `.env` — never commit it
-- [ ] **(C)** Install and initialize Prisma against local Postgres
+- [x] **(C)** Root `package.json` with npm workspaces: `server`, `client`, `shared`
+- [x] **(C)** Scaffold `server/` — Express 5 + TypeScript + `tsx` for dev
+- [x] **(C)** Scaffold `client/` — Vite + React 19 + TypeScript + Tailwind 4
+- [x] **(C)** Scaffold `shared/` — TypeScript package for zod schemas
+- [x] **(C)** `.env.example`, then **(V)** real `.env` — never commit it
+- [ ] **(C)** Install and initialize Prisma against local Postgres — pin to 7.10.0
 - [ ] **(V)** Write `prisma/schema.prisma` — see `database-design.md`
 - [ ] **(C)** First migration with `--create-only`
 - [ ] **(C)** Hand-edit migration SQL: `btree_gist` + both `EXCLUDE` constraints

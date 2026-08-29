@@ -15,16 +15,18 @@ Phase 1 — Foundation. Goal: a database schema that makes double-booking imposs
 - [x] PostgreSQL 17 installed, running as a service on 5432
 - [x] `dental_clinic` database created, `btree_gist` available
 - [x] Resolve appointment buffer constraint design — see ADR-0004
+- [x] Scaffold monorepo — npm workspaces `shared` / `server` / `client`; `GET /api/health`
+      verified end to end, all three workspaces typecheck, client builds
+- [x] `.env.example` at repo root
 
 ## Current Task
 
-- [ ] **(C)** Scaffold the monorepo — root `package.json` with npm workspaces, then `server/`
-      (Express + TS + tsx), `client/` (Vite + React + TS + Tailwind), `shared/` (zod schemas)
+- [ ] **(V)** Copy `.env.example` to `.env` and fill in your Postgres password
 
 ## Next
 
-- [ ] **(C)** `.env.example` → **(V)** real `.env`, `postgresql://…@localhost:5432/dental_clinic`
-- [ ] **(C)** Install and initialize Prisma
+- [ ] **(C)** Install and initialize Prisma — **pin `prisma` and `@prisma/client` to 7.10.0**;
+      the `latest` tag on `prisma` is an 8.0 release candidate
 - [ ] **(V)** Write `prisma/schema.prisma` — follow `docs/database-design.md`
 - [ ] **(C)** Migration with `--create-only`, hand-edited to add `btree_gist` + both `EXCLUDE`
       constraints (Prisma cannot express them — ADR-0001)
