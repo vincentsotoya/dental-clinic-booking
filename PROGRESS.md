@@ -34,14 +34,18 @@ genuinely bookable. Pure functions first, no UI.
 - [x] 🎯 Postgres session pinned to UTC in `server/src/db.ts` — see `database-design.md`
 - [x] **Phase 1 complete**
 
+- [x] Vitest installed in `server/`; `npm test` runs from the repo root
+- [x] `server/src/services/intervals.ts` — the interval algebra, 41 tests green
+
 ## Current Task
 
-- [ ] Interval subtraction explained, then type signatures for
-      `server/src/services/intervals.ts`
+- [ ] ADR-0005 for the two availability rules settled in conversation, then
+      `getAvailableSlots()` as a pure function
 
 ## Next
-- [ ] Interval helpers + unit tests **(V)**
-- [ ] Timezone strategy, then `getAvailableSlots()` as a pure function
+- [ ] Tests: closed day · fully booked · buffer edges · lead-time cutoff · a DST date ·
+      service longer than any remaining gap
+- [ ] DB-loading wrapper feeding the pure function
 - [ ] `GET /api/availability`
 
 ## Active Blockers
@@ -50,6 +54,11 @@ genuinely bookable. Pure functions first, no UI.
 
 ## Recent Decisions
 
+- Availability: treatment must fit inside a working window, but the **buffer may overrun** it —
+  the blocked range only has to avoid other appointments. ADR-0005 pending
+- Candidate start times are a 15-minute grid **plus the start of every free interval**, so a
+  buffer ending off-grid still offers a back-to-back slot. ADR-0005 pending
+- Vitest is the test runner — shares the toolchain the Vite client already uses
 - Prisma's Postgres session is pinned to UTC — it sends `DateTime` as a naive timestamp and
   Postgres resolved it in the machine's zone. Details in `docs/database-design.md`
 - Seeded appointments anchor to the Monday after today, so the data never goes stale; the UUIDs

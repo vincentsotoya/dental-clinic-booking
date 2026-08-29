@@ -42,9 +42,12 @@ Goal: a real database with a schema that makes double-booking impossible.
 
 Goal: given a service and a date range, compute which slots are genuinely bookable. No UI.
 
-- [ ] **(C)** Explain interval-subtraction; write the type signatures
-- [ ] **(V)** Interval helpers in `server/src/services/intervals.ts` — subtract, merge
-- [ ] **(V)** Unit tests for the helpers
+- [x] **(C)** Explain interval-subtraction; write the type signatures
+- [x] **(C)** Interval helpers in `server/src/services/intervals.ts` — `normalize`, `subtract`,
+      `intersect`, `atLeastMinutes`, plus `overlaps` / `contains` / `durationMinutes`
+- [x] **(C)** Vitest installed; 41 unit tests, including the seeded week run through the algebra
+- [ ] **(C)** Decide the two rules settled in conversation → ADR-0005 (buffer may overrun a
+      working window; candidate starts are a 15-min grid **plus** each free interval's start)
 - [ ] **(C)** Explain the timezone strategy — clinic TZ, `timestamptz`, DST traps
 - [ ] **(V)** `getAvailableSlots()` as a **pure function** (no DB calls inside)
 - [ ] **(V)** Tests: closed day · fully booked · buffer edges · lead-time cutoff · **a DST date** ·
