@@ -3,11 +3,13 @@
 Reference: `CONTEXT.md` (domain language) · `docs/database-design.md` (schema rules) ·
 `docs/roadmap.md` (all phases) · `docs/concepts.md` · `docs/adr/`
 
-Task tags: **(V)** Vincent writes it · **(C)** Claude writes it · **(S)** a skill session drives it
+Working mode: Claude writes the code and explains the reasoning inline; Vincent reads and
+questions. **(S)** marks a task driven by a skill session.
 
 ## Current Phase
 
-Phase 1 — Foundation. Goal: a database schema that makes double-booking impossible.
+Phase 2 — Availability engine. Goal: given a service and a date range, compute which slots are
+genuinely bookable. Pure functions first, no UI.
 
 ## Completed
 
@@ -21,16 +23,26 @@ Phase 1 — Foundation. Goal: a database schema that makes double-booking imposs
 - [x] Prisma 7.10.0 installed and initialized in `server/` — connects to `dental_clinic`,
       `GET /api/health` reports `database: up`
 - [x] Scratch table `scratch_appt` dropped; database is empty and ready for the first migration
+- [x] `schema.prisma` — 8 models, 3 enums, snake_case mapped
+- [x] Migration `20260829145823_init` applied, hand-edited with `btree_gist`, both `EXCLUDE`
+      constraints and 6 `CHECK` constraints
+- [x] 🎯 Constraints proven against the real schema: provider overlap, operatory overlap,
+      buffer-only overlap, dishonest `blocked_until` and reversed times all rejected;
+      back-to-back accepted
+- [x] `prisma/seed.ts` — 5 providers, 10 services, 3 operatories, 47 working-hours rows,
+      1 time off, 1 closure, 10 appointments. Idempotent: wipe-then-insert on fixed UUIDs
+- [x] 🎯 Postgres session pinned to UTC in `server/src/db.ts` — see `database-design.md`
+- [x] **Phase 1 complete**
 
 ## Current Task
 
-- [ ] **(V)** Write `server/prisma/schema.prisma` — follow `docs/database-design.md`, and read
-      the "Prisma 7" section there first; most tutorials online are v6 and will mislead you
+- [ ] Interval subtraction explained, then type signatures for
+      `server/src/services/intervals.ts`
 
 ## Next
-- [ ] **(C)** Migration with `--create-only`, hand-edited to add `btree_gist` + both `EXCLUDE`
-      constraints (Prisma cannot express them — ADR-0001)
-- [ ] **(V)** `prisma/seed.ts`, then confirm an overlapping insert is rejected with `23P01`
+- [ ] Interval helpers + unit tests **(V)**
+- [ ] Timezone strategy, then `getAvailableSlots()` as a pure function
+- [ ] `GET /api/availability`
 
 ## Active Blockers
 
@@ -38,6 +50,11 @@ Phase 1 — Foundation. Goal: a database schema that makes double-booking imposs
 
 ## Recent Decisions
 
+- Prisma's Postgres session is pinned to UTC — it sends `DateTime` as a naive timestamp and
+  Postgres resolved it in the machine's zone. Details in `docs/database-design.md`
+- Seeded appointments anchor to the Monday after today, so the data never goes stale; the UUIDs
+  stay fixed so fixtures written against them keep working
+- `server/tsconfig.json` includes `prisma/` — `seed.ts` was escaping `npm run typecheck`
 - `blockedUntil` is a stored column, not a computed expression — see ADR-0004
 - Insurance is recorded, not adjudicated — see ADR-0003
 - Cleaning and dentist exam are separate bookable services — see ADR-0002

@@ -13,7 +13,7 @@ Phase 5 is the first shippable portfolio state.
 Skills installed and pruned, `git init`, domain model settled via `/grill-with-docs` →
 `CONTEXT.md` + ADRs 0001–0003.
 
-## Phase 1 — Foundation
+## Phase 1 — Foundation ✅
 
 Goal: a real database with a schema that makes double-booking impossible.
 
@@ -26,13 +26,17 @@ Goal: a real database with a schema that makes double-booking impossible.
 - [x] **(C)** Scaffold `shared/` — TypeScript package for zod schemas
 - [x] **(C)** `.env.example`, then **(V)** real `.env` — never commit it
 - [x] **(C)** Install and initialize Prisma against local Postgres — pinned to 7.10.0
-- [ ] **(V)** Write `prisma/schema.prisma` — see `database-design.md`
-- [ ] **(C)** First migration with `--create-only`
-- [ ] **(C)** Hand-edit migration SQL: `btree_gist` + both `EXCLUDE` constraints
-- [ ] **(V)** `prisma migrate dev`, confirm with `\dt`
-- [ ] **(V)** `prisma/seed.ts` — 3 dentists + 2 hygienists, 10 services, 3 operatories,
-      two-window weekday hours + one Saturday provider, 2 patients
-- [ ] **(V)** 🎯 Overlapping insert rejected with `23P01` against the real schema
+- [x] Write `prisma/schema.prisma` — see `database-design.md`
+- [x] First migration with `--create-only`
+- [x] Hand-edit migration SQL: `btree_gist` + both `EXCLUDE` constraints
+- [x] `prisma migrate dev` applied
+- [x] 🎯 Overlapping insert rejected with `23P01` against the real schema — provider *and*
+      operatory constraints both proven, plus the `blocked_until` honesty check
+- [x] **(C)** `prisma/seed.ts` — 3 dentists + 2 hygienists, 10 services, 3 operatories,
+      two-window weekday hours + one Saturday provider, 2 patients, plus time off, a closure and
+      10 appointments placed on the edges Phase 2 has to get right
+- [x] 🎯 Pinned the Postgres session to UTC — Prisma was writing every `timestamptz` nine hours
+      off and reading it back shifted the same way, so only `psql` could see it
 
 ## Phase 2 — Availability engine
 

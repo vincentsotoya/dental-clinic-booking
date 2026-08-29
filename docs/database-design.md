@@ -71,3 +71,36 @@ at all — direct confirmation of why the migration SQL is hand-edited.
 - **Working hours are two rows per weekday** (08:00–12:00, 13:00–17:00) — the clinic closes for
   lunch. Deliberate: it forces the interval-subtraction model in Phase 2 rather than naive
   start/end arithmetic.
+
+### The Postgres session must be pinned to UTC
+
+`server/src/db.ts` passes `options: '-c timezone=UTC'` to the driver adapter. This is required
+for correctness, not tidiness.
+
+Prisma sends a `DateTime` to Postgres as a **naive timestamp built from the value's UTC
+components**, with no offset attached. Postgres then resolves it against the *session* timezone,
+which it inherits from the machine. On a laptop set to `Asia/Tokyo`, writing `12:00Z` stored
+`03:00Z` — and reading the row back applied the same shift in reverse, so Prisma returned
+`12:00Z` and the application looked entirely consistent. Only `psql` disagreed:
+
+```sql
+SET TimeZone='UTC';
+SELECT starts_at FROM appointments;   -- nine hours off, silently
+```
+
+The seed's own arithmetic was never wrong; the driver session was. Pinning it to UTC makes the
+naive timestamp mean what it says.
+
+Worth knowing before Phase 11: hosted Postgres defaults to UTC, so this bug **disappears in
+production and only appears locally** — the worst way round. Any second connection path added
+later (a worker, a migration script, a one-off) needs the same option.
+
+### Verifying time in psql
+
+`timestamptz` is rendered in the session timezone, so a bare `SELECT` proves nothing about what
+is stored. Always set the zone you mean:
+
+```sql
+SET TimeZone='America/New_York';   -- what the clinic sees
+SET TimeZone='UTC';                -- what is actually on disk
+```
