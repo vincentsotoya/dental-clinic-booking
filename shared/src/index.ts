@@ -9,6 +9,7 @@ import { z } from 'zod'
  */
 export const healthResponse = z.object({
   status: z.literal('ok'),
+  database: z.enum(['up', 'down']),
   clinicTimezone: z.string(),
   serverTime: z.iso.datetime(),
 })

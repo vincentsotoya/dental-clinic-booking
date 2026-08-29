@@ -1,0 +1,18 @@
+// Models go below the datasource block.
+//
+// Before writing them, read docs/database-design.md — it lists the fields
+// Appointment must carry and the constraints the migration has to end up with.
+//
+// Note that neither EXCLUDE constraint can be expressed here; Prisma has no
+// syntax for them. They are added by hand to the generated migration SQL.
+// See docs/adr/0001 and docs/adr/0004.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  // v7: provider only. The url lives in prisma.config.ts.
+  provider = "postgresql"
+}

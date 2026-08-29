@@ -25,7 +25,7 @@ Goal: a real database with a schema that makes double-booking impossible.
 - [x] **(C)** Scaffold `client/` — Vite + React 19 + TypeScript + Tailwind 4
 - [x] **(C)** Scaffold `shared/` — TypeScript package for zod schemas
 - [x] **(C)** `.env.example`, then **(V)** real `.env` — never commit it
-- [ ] **(C)** Install and initialize Prisma against local Postgres — pin to 7.10.0
+- [x] **(C)** Install and initialize Prisma against local Postgres — pinned to 7.10.0
 - [ ] **(V)** Write `prisma/schema.prisma` — see `database-design.md`
 - [ ] **(C)** First migration with `--create-only`
 - [ ] **(C)** Hand-edit migration SQL: `btree_gist` + both `EXCLUDE` constraints

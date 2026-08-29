@@ -17,17 +17,17 @@ Phase 1 — Foundation. Goal: a database schema that makes double-booking imposs
 - [x] Resolve appointment buffer constraint design — see ADR-0004
 - [x] Scaffold monorepo — npm workspaces `shared` / `server` / `client`; `GET /api/health`
       verified end to end, all three workspaces typecheck, client builds
-- [x] `.env.example` at repo root
+- [x] `.env.example` at repo root, `.env` created locally
+- [x] Prisma 7.10.0 installed and initialized in `server/` — connects to `dental_clinic`,
+      `GET /api/health` reports `database: up`
+- [x] Scratch table `scratch_appt` dropped; database is empty and ready for the first migration
 
 ## Current Task
 
-- [ ] **(V)** Copy `.env.example` to `.env` and fill in your Postgres password
+- [ ] **(V)** Write `server/prisma/schema.prisma` — follow `docs/database-design.md`, and read
+      the "Prisma 7" section there first; most tutorials online are v6 and will mislead you
 
 ## Next
-
-- [ ] **(C)** Install and initialize Prisma — **pin `prisma` and `@prisma/client` to 7.10.0**;
-      the `latest` tag on `prisma` is an 8.0 release candidate
-- [ ] **(V)** Write `prisma/schema.prisma` — follow `docs/database-design.md`
 - [ ] **(C)** Migration with `--create-only`, hand-edited to add `btree_gist` + both `EXCLUDE`
       constraints (Prisma cannot express them — ADR-0001)
 - [ ] **(V)** `prisma/seed.ts`, then confirm an overlapping insert is rejected with `23P01`
@@ -43,3 +43,7 @@ Phase 1 — Foundation. Goal: a database schema that makes double-booking imposs
 - Cleaning and dentist exam are separate bookable services — see ADR-0002
 - Postgres enforces no-double-booking via `EXCLUDE USING gist` — see ADR-0001
 - Development runs on local Postgres 17; hosted Neon deferred to Phase 11
+- Prisma pinned to the 7.x line — `prisma`'s `latest` tag is an 8.0 release candidate
+- `npm audit` reports 3 high (deepmerge-ts) via the Prisma **CLI**, a devDependency. Not fixed:
+  the only fix downgrades to Prisma 6. Dev-time only, no untrusted input. Revisit when Prisma
+  ships a patched `@prisma/config`.

@@ -8,6 +8,9 @@ dist/
 build/
 .vite/
 
+# prisma generated client — regenerate with `npm run db:generate`
+server/generated/
+
 # environment — NEVER commit these
 .env
 .env.*

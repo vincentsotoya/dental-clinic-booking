@@ -46,6 +46,23 @@ Prisma cannot express `EXCLUDE`. Migrations touching these are generated with
 
 `blockedUntil` is a stored column and cannot be computed by Postgres — see ADR-0004.
 
+## Prisma 7
+
+The version installed is 7.10.0, which differs from most tutorials and from v6 muscle memory:
+
+- **`datasource` carries `provider` only.** The connection URL lives in
+  `server/prisma.config.ts`, not in `schema.prisma`.
+- **The generator is `prisma-client`**, not `prisma-client-js`, and `output` is mandatory. Ours
+  writes to `server/generated/prisma`, which is gitignored — run `npm run db:generate` after any
+  schema change.
+- **A driver adapter is required.** `new PrismaClient()` with no arguments throws. See
+  `server/src/db.ts`, which wires `PrismaPg` with the connection string.
+- **Prisma does not load `.env` by itself.** `prisma.config.ts` loads the repo-root `.env`
+  explicitly.
+
+Introspection (`prisma db pull`) reports that it cannot represent check or exclusion constraints
+at all — direct confirmation of why the migration SQL is hand-edited.
+
 ## Time
 
 - Clinic timezone is `America/New_York`, in config as `CLINIC_TIMEZONE`. Never inherited from the

@@ -52,6 +52,18 @@ export default function App() {
                 <dd className="font-medium text-emerald-600">{state.data.status}</dd>
               </div>
               <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Database</dt>
+                <dd
+                  className={
+                    state.data.database === 'up'
+                      ? 'font-medium text-emerald-600'
+                      : 'font-medium text-red-600'
+                  }
+                >
+                  {state.data.database}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">Clinic timezone</dt>
                 <dd className="font-mono">{state.data.clinicTimezone}</dd>
               </div>
