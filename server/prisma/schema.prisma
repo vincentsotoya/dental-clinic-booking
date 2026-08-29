@@ -1,11 +1,17 @@
-// Models go below the datasource block.
+// Dental clinic booking — schema.
 //
-// Before writing them, read docs/database-design.md — it lists the fields
-// Appointment must carry and the constraints the migration has to end up with.
+// Terminology is defined in CONTEXT.md; the rules this file must satisfy are in
+// docs/database-design.md. Two things this schema deliberately does NOT express,
+// because Prisma has no syntax for them, are appended by hand to the migration
+// SQL (see docs/adr/0001 and docs/adr/0004):
 //
-// Note that neither EXCLUDE constraint can be expressed here; Prisma has no
-// syntax for them. They are added by hand to the generated migration SQL.
-// See docs/adr/0001 and docs/adr/0004.
+//   1. Two EXCLUDE USING gist constraints on appointments — one per provider,
+//      one per operatory — that make double-booking physically impossible.
+//   2. A CHECK tying blocked_until to ends_at + buffer_mins.
+//
+// Column and table names are mapped to snake_case. Postgres folds unquoted
+// identifiers to lowercase, so a camelCase column has to be double-quoted in
+// every hand-written statement; snake_case avoids that entirely.
 
 generator client {
   provider = "prisma-client"
@@ -15,4 +21,241 @@ generator client {
 datasource db {
   // v7: provider only. The url lives in prisma.config.ts.
   provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum ProviderType {
+  DENTIST
+  HYGIENIST
+}
+
+/// No PENDING. A booking is confirmed the moment it is created — there is no
+/// held or provisional state. This is why the exclusion constraints can filter
+/// on status = 'CONFIRMED' and why cancelling frees a slot immediately.
+enum AppointmentStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum Weekday {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+// ---------------------------------------------------------------------------
+// People
+// ---------------------------------------------------------------------------
+
+/// Anyone who delivers care and therefore owns a schedule. Never called
+/// "Dentist" — a dentist is a Provider whose type is DENTIST. Hygienists book
+/// independently and do not need a dentist present (ADR-0002).
+model Provider {
+  id        String       @id @default(uuid()) @db.Uuid
+  type      ProviderType
+  firstName String       @map("first_name")
+  lastName  String       @map("last_name")
+  /// Shown to patients, e.g. "DDS", "RDH".
+  title     String?
+  bio       String?
+  isActive  Boolean      @default(true) @map("is_active")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workingHours WorkingHours[]
+  timeOff      TimeOff[]
+  appointments Appointment[]
+
+  @@index([type, isActive])
+  @@map("providers")
+}
+
+/// A person who receives care. Distinct from the login account: Phase 3 adds a
+/// User via Better Auth and links it here one-to-one.
+model Patient {
+  id          String    @id @default(uuid()) @db.Uuid
+  firstName   String    @map("first_name")
+  lastName    String    @map("last_name")
+  email       String    @unique
+  phone       String?
+  dateOfBirth DateTime? @map("date_of_birth") @db.Date
+
+  /// Months between routine cleanings. What makes a patient "due".
+  recallIntervalMonths Int @default(6) @map("recall_interval_months")
+
+  /// Recorded for the front desk, never adjudicated — we do not verify
+  /// coverage or compute what insurance will pay. See ADR-0003.
+  insuranceProvider String? @map("insurance_provider")
+  insuranceMemberId String? @map("insurance_member_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  appointments Appointment[]
+
+  @@map("patients")
+}
+
+// ---------------------------------------------------------------------------
+// Clinic resources
+// ---------------------------------------------------------------------------
+
+/// A treatment room and its chair — a finite, physically bookable resource.
+/// The three in the seed are interchangeable; an appointment consumes one for
+/// its whole blocked range.
+model Operatory {
+  id       String  @id @default(uuid()) @db.Uuid
+  name     String  @unique
+  isActive Boolean @default(true) @map("is_active")
+
+  appointments Appointment[]
+
+  @@map("operatories")
+}
+
+/// A bookable treatment. Duration and buffer live here and are copied onto the
+/// appointment at booking time.
+model Service {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String  @unique
+  description String?
+
+  /// Treatment time shown to the patient.
+  durationMins Int @map("duration_mins")
+
+  /// Turnover and sterilisation after treatment ends, during which the
+  /// operatory and provider stay unavailable. A root canal needs more than a
+  /// checkup, so it belongs to the service rather than being a global setting.
+  bufferMins Int @map("buffer_mins")
+
+  /// Integer cents. Never a float — money and binary fractions do not mix.
+  priceCents Int @map("price_cents")
+
+  /// Each service is performed by exactly one type of provider. A cleaning is
+  /// a hygienist service; an exam is a dentist service (ADR-0002).
+  providerType ProviderType @map("provider_type")
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  appointments Appointment[]
+
+  @@index([providerType, isActive])
+  @@map("services")
+}
+
+// ---------------------------------------------------------------------------
+// Availability inputs — what Phase 2 subtracts from
+// ---------------------------------------------------------------------------
+
+/// One recurring weekly window during which a provider can be booked.
+///
+/// Deliberately TWO rows per weekday (08:00–12:00 and 13:00–17:00): the clinic
+/// closes for lunch. A single unbroken window would let naive start/end
+/// arithmetic pass every test; two windows force availability to be modelled
+/// as a set of free intervals.
+///
+/// Times are minutes from midnight in the clinic's timezone (480 = 08:00), not
+/// timestamps. Working hours are wall-clock rules, not instants — storing them
+/// as integers keeps them out of timezone and DST arithmetic entirely.
+model WorkingHours {
+  id          String  @id @default(uuid()) @db.Uuid
+  providerId  String  @map("provider_id") @db.Uuid
+  weekday     Weekday
+  startMinute Int     @map("start_minute")
+  endMinute   Int     @map("end_minute")
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId, weekday])
+  @@map("working_hours")
+}
+
+/// A dated range during which one provider is unavailable. Applies to that
+/// provider only — for the whole clinic, see ClinicClosure.
+model TimeOff {
+  id         String   @id @default(uuid()) @db.Uuid
+  providerId String   @map("provider_id") @db.Uuid
+  startsAt   DateTime @map("starts_at") @db.Timestamptz(6)
+  endsAt     DateTime @map("ends_at") @db.Timestamptz(6)
+  reason     String?
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId, startsAt])
+  @@map("time_off")
+}
+
+/// A dated range during which the whole clinic is shut and nobody can be
+/// booked. Kept separate from TimeOff rather than sharing one table with a
+/// nullable provider — the two are subtracted at different points in the
+/// availability calculation, and a nullable FK would let one row mean two
+/// different things.
+model ClinicClosure {
+  id       String   @id @default(uuid()) @db.Uuid
+  startsAt DateTime @map("starts_at") @db.Timestamptz(6)
+  endsAt   DateTime @map("ends_at") @db.Timestamptz(6)
+  reason   String?
+
+  @@index([startsAt])
+  @@map("clinic_closures")
+}
+
+// ---------------------------------------------------------------------------
+// The core row
+// ---------------------------------------------------------------------------
+
+/// One patient, one provider, one service, one operatory, over one time range.
+///
+/// Three timestamps, not two:
+///   startsAt      — treatment begins (clinical truth, shown to the patient)
+///   endsAt        — treatment ends   (clinical truth, shown to the patient)
+///   blockedUntil  — endsAt + buffer  (what the exclusion constraints range over)
+///
+/// blockedUntil must be a stored column: `timestamptz + interval` is STABLE
+/// rather than IMMUTABLE so no index expression may compute it, and the buffer
+/// lives on Service, which a constraint cannot join to. See ADR-0004.
+model Appointment {
+  id          String @id @default(uuid()) @db.Uuid
+  patientId   String @map("patient_id") @db.Uuid
+  providerId  String @map("provider_id") @db.Uuid
+  serviceId   String @map("service_id") @db.Uuid
+  operatoryId String @map("operatory_id") @db.Uuid
+
+  startsAt     DateTime @map("starts_at") @db.Timestamptz(6)
+  endsAt       DateTime @map("ends_at") @db.Timestamptz(6)
+  blockedUntil DateTime @map("blocked_until") @db.Timestamptz(6)
+
+  /// Snapshot of the service's buffer at booking time. Not redundant: it is
+  /// what makes the CHECK constraint expressible, and it stops a later edit to
+  /// a Service retroactively moving the blocked range of appointments that are
+  /// already on the books.
+  bufferMins Int @map("buffer_mins")
+
+  status AppointmentStatus @default(CONFIRMED)
+  notes  String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  patient   Patient   @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  provider  Provider  @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  service   Service   @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  operatory Operatory @relation(fields: [operatoryId], references: [id], onDelete: Restrict)
+
+  @@index([patientId, startsAt])
+  @@index([providerId, startsAt])
+  @@index([status, startsAt])
+  @@map("appointments")
 }
