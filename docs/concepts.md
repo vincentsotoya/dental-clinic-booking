@@ -30,6 +30,40 @@ Add to it as things click.
   `22:00+09` back isn't a bug, it's the session timezone formatting a stored point in time. Hence
   `CLINIC_TIMEZONE` in config rather than whatever locale the server runs under.
 
+## The availability engine
+
+- **The engine must be stricter than the constraint, never looser** — the `EXCLUDE` constraints
+  know nothing about working hours, so they would happily accept an appointment at 03:00. The
+  engine offers a strict subset of what the database permits. That direction is the safe one: every
+  slot offered is insertable, and the `23P01` catch in Phase 4 stays a genuine concurrency race
+  rather than the routine way bookings fail. Looser would mean patients regularly picking a time
+  the database then refuses.
+- **Turnover time and treatment time obey different rules** — the buffer may run past closing
+  because nobody is being treated during it, but it must still clear other appointments, because
+  that is a physical claim on a room. So the check cannot collapse into
+  `atLeastMinutes(free, duration + buffer)`: two spans, two different sets to check against
+  (ADR-0005). Folding them together silently deletes the last slot of every day and every lunch.
+- **A fixed grid quietly loses time after every off-grid buffer** — a 30-minute cleaning with a
+  5-minute buffer at 09:30 frees the room at 09:35, and a pure 15-minute grid offers 10:15. Ten
+  minutes gone, and again after the next one. Offering each free interval's start *in addition to*
+  the grid is what makes back-to-back booking reachable rather than merely legal.
+- **A Slot is a candidate, not a reservation** — with no PENDING status, nothing is held. Two
+  dentists free at 08:00 are both offered the same room, and that is correct: whoever books first
+  takes it. Allocating rooms across providers in advance would be inventing a reservation the
+  system does not have, and would be wrong the moment either patient walked away.
+- **Purity is what makes the hard cases testable at all** — `now` is a parameter and there is no
+  database call, so the lead-time cutoff can be tested at the exact boundary minute and DST can be
+  tested on a January date and a July date from a machine in neither zone. A function that reads
+  the clock and the database can only be tested by arranging a database and waiting.
+- **Step the grid in wall-clock minutes, then convert** — generating candidates as minute 480, 495,
+  510 and resolving each against the zone is not the same as adding 15 minutes of elapsed time to
+  the first slot. Patients read the clinic's clock. In a zone with a half-hour offset the two
+  disagree, and across a DST boundary the elapsed-time version drifts off the grid entirely.
+- **Wall-clock rules do not belong in `timestamptz`** — `WorkingHours` stores minutes from midnight
+  because "we open at 08:00" is a rule, not an instant; it stays true on both sides of a DST
+  change, which a stored timestamp would not. All the timezone arithmetic then collects in one
+  small module instead of being smeared across the schema.
+
 ## Domain modelling
 
 - **A lunch break is what makes an availability engine real** — one unbroken 08:00–17:00 window

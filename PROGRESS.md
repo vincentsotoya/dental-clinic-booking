@@ -9,7 +9,7 @@ questions. **(S)** marks a task driven by a skill session.
 ## Current Phase
 
 Phase 2 — Availability engine. Goal: given a service and a date range, compute which slots are
-genuinely bookable. Pure functions first, no UI.
+genuinely bookable. The pure function is done; what remains is wiring it to Postgres and HTTP.
 
 ## Completed
 
@@ -22,7 +22,6 @@ genuinely bookable. Pure functions first, no UI.
 - [x] `.env.example` at repo root, `.env` created locally
 - [x] Prisma 7.10.0 installed and initialized in `server/` — connects to `dental_clinic`,
       `GET /api/health` reports `database: up`
-- [x] Scratch table `scratch_appt` dropped; database is empty and ready for the first migration
 - [x] `schema.prisma` — 8 models, 3 enums, snake_case mapped
 - [x] Migration `20260829145823_init` applied, hand-edited with `btree_gist`, both `EXCLUDE`
       constraints and 6 `CHECK` constraints
@@ -36,17 +35,21 @@ genuinely bookable. Pure functions first, no UI.
 
 - [x] Vitest installed in `server/`; `npm test` runs from the repo root
 - [x] `server/src/services/intervals.ts` — the interval algebra, 41 tests green
+- [x] ADR-0005 — the two availability rules written down
+- [x] `server/src/services/clinic-time.ts` — clinic-calendar helpers extracted out of `seed.ts`,
+      13 tests; `seed.ts` now imports them and reseeds identically
+- [x] `server/src/config.ts` — `LEAD_TIME_MINS`, `SLOT_GRID_MINS` as clinic policy, not env
+- [x] 🎯 `server/src/services/availability.ts` — `getAvailableSlots()`, pure: no Prisma, `now`
+      injected. 21 tests including the DST date. 75 green overall
 
 ## Current Task
 
-- [ ] ADR-0005 for the two availability rules settled in conversation, then
-      `getAvailableSlots()` as a pure function
+- [ ] DB-loading wrapper feeding the pure function — loads CONFIRMED appointments only
 
 ## Next
-- [ ] Tests: closed day · fully booked · buffer edges · lead-time cutoff · a DST date ·
-      service longer than any remaining gap
-- [ ] DB-loading wrapper feeding the pure function
-- [ ] `GET /api/availability`
+
+- [ ] `GET /api/availability` + verify with curl
+- [ ] Zod request/response schemas in `shared/` for the endpoint
 
 ## Active Blockers
 
@@ -54,10 +57,14 @@ genuinely bookable. Pure functions first, no UI.
 
 ## Recent Decisions
 
-- Availability: treatment must fit inside a working window, but the **buffer may overrun** it —
-  the blocked range only has to avoid other appointments. ADR-0005 pending
-- Candidate start times are a 15-minute grid **plus the start of every free interval**, so a
-  buffer ending off-grid still offers a back-to-back slot. ADR-0005 pending
+- Availability rules are settled and documented — see ADR-0005
+- A Slot is a candidate, not a reservation: two providers free at the same instant are both
+  offered the first free room, because nothing is held until a row is written
+- Room choice is deterministic — operatories sorted by name, first free one wins
+- Lead time and the slot grid are constants in `server/src/config.ts`, passed into the engine as
+  parameters. Phase 7 can turn them into an admin setting without touching the engine
+- Timezone conversion lives in one module and takes the zone as an argument, so tests run at
+  `America/New_York` on any machine
 - Vitest is the test runner — shares the toolchain the Vite client already uses
 - Prisma's Postgres session is pinned to UTC — it sends `DateTime` as a naive timestamp and
   Postgres resolved it in the machine's zone. Details in `docs/database-design.md`

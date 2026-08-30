@@ -46,14 +46,15 @@ Goal: given a service and a date range, compute which slots are genuinely bookab
 - [x] **(C)** Interval helpers in `server/src/services/intervals.ts` — `normalize`, `subtract`,
       `intersect`, `atLeastMinutes`, plus `overlaps` / `contains` / `durationMinutes`
 - [x] **(C)** Vitest installed; 41 unit tests, including the seeded week run through the algebra
-- [ ] **(C)** Decide the two rules settled in conversation → ADR-0005 (buffer may overrun a
-      working window; candidate starts are a 15-min grid **plus** each free interval's start)
-- [ ] **(C)** Explain the timezone strategy — clinic TZ, `timestamptz`, DST traps
-- [ ] **(V)** `getAvailableSlots()` as a **pure function** (no DB calls inside)
-- [ ] **(V)** Tests: closed day · fully booked · buffer edges · lead-time cutoff · **a DST date** ·
-      service longer than any remaining gap
+- [x] **(C)** ADR-0005 — treatment must fit the working window, the buffer may overrun it;
+      candidate starts are a 15-min grid **plus** each free interval's start
+- [x] **(C)** Clinic-time helpers extracted from `seed.ts` into `src/services/clinic-time.ts` —
+      wall-clock minutes resolved to instants against the zone, never a hardcoded offset
+- [x] **(C)** `getAvailableSlots()` as a **pure function** — no DB calls, `now` is a parameter
+- [x] **(C)** 34 tests: closed day · fully booked · buffer edges · lead-time cutoff · **a DST
+      date** · service longer than any remaining gap
 - [ ] **(C)** DB-loading wrapper feeding the pure function
-- [ ] **(V)** `GET /api/availability` + verify with curl
+- [ ] **(C)** `GET /api/availability` + verify with curl
 
 ## Phase 3 — Auth
 
