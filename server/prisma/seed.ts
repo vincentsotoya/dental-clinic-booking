@@ -16,6 +16,7 @@
 
 import { prisma } from '../src/db'
 import { env } from '../src/env'
+import { auth } from '../src/auth'
 import type { Prisma } from '../generated/prisma/client'
 import { createClinicCalendar, type ClinicDate } from '../src/services/clinic-time'
 
@@ -58,6 +59,105 @@ const appointmentIds = {
   extractionWedPm: '4e716000-0000-4000-8000-000000000009',
   newPatientFri: '4e716000-0000-4000-8000-00000000000a',
 } as const
+
+// ---------------------------------------------------------------------------
+// Logins
+// ---------------------------------------------------------------------------
+
+// The one thing here that is *not* a fixed id: Better Auth mints user ids
+// itself, so a reseed produces new ones. The stable handle for a login is its
+// email, which is unique and is what identity actually means here (ADR-0007).
+
+/**
+ * The same password for every seeded login, and deliberately unusable as
+ * anything else. This is local fixture data for a database the seed wipes on
+ * every run; the value is in being able to log in as any of these accounts
+ * without looking it up. It is long enough to satisfy the 12-character minimum
+ * in `auth.ts` — a seed that cannot satisfy the app's own rules is a seed that
+ * is testing something other than the app.
+ */
+const SEED_PASSWORD = 'not-a-real-secret'
+
+const logins = {
+  marsh: { email: 'elena.marsh@example.com', firstName: 'Elena', lastName: 'Marsh' },
+  nakamura: { email: 'victor.nakamura@example.com', firstName: 'Victor', lastName: 'Nakamura' },
+  admin: { email: 'dana.whitfield@example.com', firstName: 'Dana', lastName: 'Whitfield' },
+} as const
+
+/**
+ * Sign a login up through the real endpoint, then hand it the chart it belongs
+ * to.
+ *
+ * `auth.api.signUpEmail` rather than an INSERT, because a hand-written `user`
+ * row has no `account` row and therefore no password hash: it would look
+ * correct in Studio and fail at the login screen. Going through the library
+ * also exercises the signup hook, so a broken hook fails the seed instead of
+ * waiting for a real user.
+ *
+ * Which is exactly why there is a second chart to clean up. Signup never adopts
+ * an existing chart on an unverified email (ADR-0007), so the hook has just
+ * created an empty one — while the chart with this patient's history, insurance
+ * and appointments is the one the seed inserted above. The seed is the clinic's
+ * own records, not a claim made by whoever typed the address, so it links
+ * directly and drops the duplicate: the Phase 7 front-desk merge, performed by
+ * the only actor currently able to perform it.
+ *
+ * Both statements go in one transaction, and the delete goes first: `user_id`
+ * is unique, so the link cannot move to the seeded chart while the duplicate
+ * still holds it.
+ */
+async function createPatientLogin(patientId: string, login: (typeof logins)[keyof typeof logins]) {
+  const { user } = await auth.api.signUpEmail({
+    body: {
+      email: login.email,
+      password: SEED_PASSWORD,
+      // Better Auth wants one display name; the clinic keeps the two parts it
+      // was actually given. The join goes this way and never the other way.
+      name: `${login.firstName} ${login.lastName}`,
+      firstName: login.firstName,
+      lastName: login.lastName,
+    },
+  })
+
+  await prisma.$transaction([
+    prisma.patient.delete({ where: { userId: user.id } }),
+    prisma.patient.update({ where: { id: patientId }, data: { userId: user.id } }),
+  ])
+
+  return user
+}
+
+/**
+ * The admin, promoted after the fact because there is no other way to make one.
+ *
+ * `role` is an `additionalFields` with `input: false` (see `auth.ts`), so the
+ * signup body cannot ask for `ADMIN` — not from the seed either. Every account
+ * is born a PATIENT and is promoted by a server-side update, which is the
+ * property that stops a stranger posting `{"role":"ADMIN"}` at the signup
+ * route. The seed paying the same cost as everyone else is the point.
+ *
+ * The hook charted this login on the way past, since at that moment it was a
+ * patient. An admin administers the schedule and receives no care, so that row
+ * means nothing and goes.
+ */
+async function createAdminLogin(login: (typeof logins)[keyof typeof logins]) {
+  const { user } = await auth.api.signUpEmail({
+    body: {
+      email: login.email,
+      password: SEED_PASSWORD,
+      name: `${login.firstName} ${login.lastName}`,
+      firstName: login.firstName,
+      lastName: login.lastName,
+    },
+  })
+
+  await prisma.$transaction([
+    prisma.patient.deleteMany({ where: { userId: user.id } }),
+    prisma.user.update({ where: { id: user.id }, data: { role: 'ADMIN' } }),
+  ])
+
+  return user
+}
 
 // ---------------------------------------------------------------------------
 // The clinic calendar
@@ -291,6 +391,14 @@ async function main() {
   await prisma.operatory.deleteMany()
   await prisma.provider.deleteMany()
 
+  // Logins last of the wipe, and after the charts they point at: patients.user_id
+  // is ON DELETE SET NULL, so a login can be deleted out from under a chart
+  // without touching it — the property Phase 3 proved against real rows. Session
+  // and account cascade from user; verification rows reference nobody and would
+  // otherwise outlive every account they were issued for.
+  await prisma.user.deleteMany()
+  await prisma.verification.deleteMany()
+
   // --- Rooms --------------------------------------------------------------
   // Interchangeable on purpose: Phase 2 picks whichever is free, so the room
   // is never something the patient chooses.
@@ -378,6 +486,19 @@ async function main() {
       },
     ],
   })
+
+  // --- Logins -------------------------------------------------------------
+  // Two patients and an admin. The two patients are the ones who already own
+  // every seeded appointment, so `GET /api/appointments/me` has something to
+  // return the moment Phase 4 exists, and Phase 3's authz proof has a real
+  // patient A and a real patient B whose rows genuinely belong to someone else.
+  //
+  // Sequential, not Promise.all: three signups race on nothing here, and a
+  // failure part-way through is easier to read when the account it belongs to
+  // is the last thing that ran.
+  await createPatientLogin(patientIds.marsh, logins.marsh)
+  await createPatientLogin(patientIds.nakamura, logins.nakamura)
+  await createAdminLogin(logins.admin)
 
   // --- Working hours ------------------------------------------------------
   // Deliberately not uniform. Three shapes the availability engine has to
@@ -555,6 +676,7 @@ async function main() {
   console.log(`  providers       ${await prisma.provider.count()}`)
   console.log(`  services        ${await prisma.service.count()}`)
   console.log(`  patients        ${await prisma.patient.count()}`)
+  console.log(`  logins          ${await prisma.user.count()}`)
   console.log(`  working hours   ${await prisma.workingHours.count()}`)
   console.log(`  time off        ${await prisma.timeOff.count()}`)
   console.log(`  clinic closures ${await prisma.clinicClosure.count()}`)
@@ -562,6 +684,11 @@ async function main() {
   console.log('')
   console.log(`Seeded week starts Monday ${iso(monday)} (${env.CLINIC_TIMEZONE}).`)
   console.log(`Raman is off Thursday ${iso(thursday)}; the clinic is shut ${iso(trainingDay)}.`)
+  console.log('')
+  console.log(`Logins — password "${SEED_PASSWORD}" for all three:`)
+  console.log(`  PATIENT  ${logins.marsh.email}`)
+  console.log(`  PATIENT  ${logins.nakamura.email}`)
+  console.log(`  ADMIN    ${logins.admin.email}`)
 }
 
 main()

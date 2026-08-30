@@ -68,14 +68,20 @@ that makes "patient A cannot touch patient B's anything" a tested property rathe
       and leaves hers unlinked, a body claiming `role: "ADMIN"` produces a `PATIENT`, and deleting
       a login leaves the chart standing with `user_id` back to null
 
+- [x] Seed grows logins — Marsh, Nakamura and an admin through `auth.api.signUpEmail`; the wipe
+      now clears `user` and `verification` too, and the seed prints the three credentials
+- [x] 🎯 All three sign in for real: roles come back `PATIENT`/`PATIENT`/`ADMIN`, a wrong password
+      is rejected, both patients keep their fixed chart id with its 5 appointments and insurance,
+      the admin has none, and a reseed still ends at 2 charts / 3 logins
+
 ## Current Task
 
-- [ ] Seed grows logins — two patients and an admin, via `auth.api.signUpEmail`
+- [ ] Error envelope generalised into `shared/src/errors.ts`
 
 ## Next
 
-- [ ] Error envelope generalised into `shared/src/errors.ts`
 - [ ] `requireAuth` / `requireRole` / `requireOwnership` + `GET /api/me`
+- [ ] Authz tests + 🎯 `npm run db:authz` over real cookies
 
 ## Active Blockers
 
@@ -83,6 +89,15 @@ that makes "patient A cannot touch patient B's anything" a tested property rathe
 
 ## Recent Decisions
 
+- The seed signs up through `auth.api.signUpEmail`, never an INSERT: a hand-written `user` row has
+  no `account` row, so it has no password hash and cannot log in
+- Signup charts a second, empty patient (ADR-0007 — it never adopts), so the seed deletes that one
+  and links the seeded chart instead. That is the Phase 7 front-desk merge, performed by the only
+  actor that currently may. Delete before update, in one transaction: `user_id` is unique
+- The admin is promoted by a server-side `user.update` after signup. `input: false` means even the
+  seed cannot ask for a role in a signup body — which is the point of the flag
+- Better Auth mints user ids, so logins are the one seeded thing without a fixed id; email is their
+  stable handle. One fixture password for all three, printed by the seed
 - Ownership is a WHERE clause and a stranger's row is a 404; signup never adopts a chart by
   unverified email — see ADR-0007
 - Better Auth's four tables keep the library's conventions, and `/api/auth/*` keeps its error
