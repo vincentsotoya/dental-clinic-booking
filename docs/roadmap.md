@@ -53,7 +53,7 @@ Goal: given a service and a date range, compute which slots are genuinely bookab
 - [x] **(C)** `getAvailableSlots()` as a **pure function** — no DB calls, `now` is a parameter
 - [x] **(C)** 34 tests: closed day · fully booked · buffer edges · lead-time cutoff · **a DST
       date** · service longer than any remaining gap
-- [ ] **(C)** DB-loading wrapper feeding the pure function
+- [x] **(C)** DB-loading wrapper feeding the pure function
 - [ ] **(C)** `GET /api/availability` + verify with curl
 
 ## Phase 3 — Auth

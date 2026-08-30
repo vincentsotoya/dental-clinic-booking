@@ -41,15 +41,20 @@ genuinely bookable. The pure function is done; what remains is wiring it to Post
 - [x] `server/src/config.ts` — `LEAD_TIME_MINS`, `SLOT_GRID_MINS` as clinic policy, not env
 - [x] 🎯 `server/src/services/availability.ts` — `getAvailableSlots()`, pure: no Prisma, `now`
       injected. 21 tests including the DST date. 75 green overall
+- [x] `server/src/services/availability-query.ts` — `findAvailability()`, the impure shell:
+      resolves a service by slug, loads the five inputs in parallel, returns slots + the
+      resolved service. 7 tests on the range expansion; 82 green overall
+- [x] 🎯 Proven against the seeded database — `npm run db:availability` (`server/scripts/`):
+      cancelling the seeded 08:00 cleaning frees 08:00 and 08:15, restoring re-blocks them;
+      the closure day returns 0 slots; the three bad queries reject with their codes
 
 ## Current Task
 
-- [ ] DB-loading wrapper feeding the pure function — loads CONFIRMED appointments only
+- [ ] Zod request/response schemas in `shared/` for the availability endpoint — loads CONFIRMED appointments only
 
 ## Next
 
 - [ ] `GET /api/availability` + verify with curl
-- [ ] Zod request/response schemas in `shared/` for the endpoint
 
 ## Active Blockers
 
@@ -57,6 +62,17 @@ genuinely bookable. The pure function is done; what remains is wiring it to Post
 
 ## Recent Decisions
 
+- Services are addressed by `slug`, not id — stable, already unique, keeps UUIDs out of the
+  public URL and makes a query readable in a log
+- The loader fetches **every** CONFIRMED appointment in the window, not just the queried
+  provider's: another provider's appointment occupies a room, and that room is unavailable to
+  this one
+- Bad queries throw `AvailabilityQueryError` with a `code`, so the route maps to a status
+  without matching on message strings
+- Availability reads are issued in parallel, not in a transaction — a Slot is a candidate and
+  the exclusion constraints are the real guard. Phase 4's booking transaction is where a
+  consistent read matters
+- `MAX_AVAILABILITY_DAYS = 90` caps a single query; both a booking horizon and a DoS guard
 - Availability rules are settled and documented — see ADR-0005
 - A Slot is a candidate, not a reservation: two providers free at the same instant are both
   offered the first free room, because nothing is held until a row is written

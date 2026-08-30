@@ -26,3 +26,13 @@ export const LEAD_TIME_MINS = 24 * 60
  * ADR-0005.
  */
 export const SLOT_GRID_MINS = 15
+
+/**
+ * The longest date range a single availability query may ask for.
+ *
+ * Both a booking horizon and a guard. The clinic would not take a booking two
+ * years out anyway, and without a ceiling `?from=2026-01-01&to=2099-01-01`
+ * expands to 26,000 dates and walks every one of them through the engine —
+ * a trivially cheap request to send and an expensive one to serve.
+ */
+export const MAX_AVAILABILITY_DAYS = 90
