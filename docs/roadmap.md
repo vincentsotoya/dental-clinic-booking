@@ -54,6 +54,7 @@ Goal: given a service and a date range, compute which slots are genuinely bookab
 - [x] **(C)** 34 tests: closed day · fully booked · buffer edges · lead-time cutoff · **a DST
       date** · service longer than any remaining gap
 - [x] **(C)** DB-loading wrapper feeding the pure function
+- [x] **(C)** Zod request/response schemas in `shared/`, split one module per endpoint
 - [ ] **(C)** `GET /api/availability` + verify with curl
 
 ## Phase 3 — Auth

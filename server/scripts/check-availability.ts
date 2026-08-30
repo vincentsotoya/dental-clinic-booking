@@ -8,9 +8,11 @@
 // The last section is the point of the task: it cancels a seeded appointment,
 // re-queries, and shows the slot come back. Nothing is left changed.
 
+import { availabilityQuery, availabilityResponse } from '@dental/shared'
 import { prisma } from '../src/db'
 import { env } from '../src/env'
 import { findAvailability } from '../src/services/availability-query'
+import { toAvailabilityResponse } from '../src/services/availability-response'
 import { addDays, type ClinicDate, createClinicCalendar, iso } from '../src/services/clinic-time'
 import type { Slot } from '../src/services/availability'
 
@@ -130,6 +132,31 @@ async function main() {
   const freed = after.filter((time) => !before.includes(time))
   console.log(`  cancelling freed: ${freed.join(' ') || 'nothing — WRONG'}`)
   console.log(`  restore matches original: ${JSON.stringify(restored) === JSON.stringify(before)}`)
+
+  // --- The wire contract ---------------------------------------------------
+  // The schemas in `shared/` are unit-tested against handwritten fixtures. A
+  // fixture only ever proves the schema agrees with whoever wrote the fixture,
+  // so this parses a real week of real rows through the real serialiser.
+  console.log('')
+  const parsedQuery = availabilityQuery.parse({
+    service: 'routine-exam',
+    from: iso(monday),
+    to: iso(saturday),
+  })
+  console.log(`Query "service=routine-exam&from=${iso(monday)}&to=${iso(saturday)}" parses to`)
+  console.log(`  ${JSON.stringify(parsedQuery)}`)
+
+  const body = availabilityResponse.parse(toAvailabilityResponse(week))
+  const days = new Set(body.slots.map((slot) => slot.date))
+  console.log(`Response parses: ${body.slots.length} slots over ${days.size} days,`)
+  console.log(`  ${Object.keys(body.providers).length} providers, range ${body.range.from}→${body.range.to}`)
+  console.log(`  first slot: ${JSON.stringify(body.slots[0])}`)
+
+  // The civil date on each slot must be the clinic's day, not UTC's. A 16:30
+  // slot in New York is 20:30Z — same date here, but the assertion is what
+  // would catch a zone where it is not.
+  const misfiled = body.slots.filter((slot) => slot.date !== day.format(new Date(slot.startsAt)))
+  console.log(`  slots filed under the wrong clinic date: ${misfiled.length} (expected 0)`)
 
   // --- Rejected queries ----------------------------------------------------
   console.log('')

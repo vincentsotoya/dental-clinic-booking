@@ -76,10 +76,25 @@ export type ResolvedService = ServiceSpec & {
   name: string
 }
 
+/**
+ * A provider who could deliver the queried service, with enough identity to
+ * name in a UI. A Slot carries only a `providerId`, so without this the client
+ * would need a second round trip to turn the answer into a sentence.
+ */
+export type AvailabilityProvider = {
+  id: string
+  type: ProviderSchedule['type']
+  firstName: string
+  lastName: string
+  title: string | null
+}
+
 export type AvailabilityResult = {
   service: ResolvedService
   timeZone: string
   dates: ClinicDate[]
+  /** Everyone considered, whether or not they ended up with a free slot. */
+  providers: AvailabilityProvider[]
   slots: Slot[]
 }
 
@@ -180,6 +195,9 @@ export async function findAvailability(
       select: {
         id: true,
         type: true,
+        firstName: true,
+        lastName: true,
+        title: true,
         workingHours: { select: { weekday: true, startMinute: true, endMinute: true } },
       },
     }),
@@ -240,6 +258,7 @@ export async function findAvailability(
     service: resolved,
     timeZone,
     dates,
+    providers,
     slots: getAvailableSlots({
       service: resolved,
       // The row shapes above are the engine's input types already — the

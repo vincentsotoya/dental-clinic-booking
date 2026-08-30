@@ -47,14 +47,23 @@ genuinely bookable. The pure function is done; what remains is wiring it to Post
 - [x] 🎯 Proven against the seeded database — `npm run db:availability` (`server/scripts/`):
       cancelling the seeded 08:00 cleaning frees 08:00 and 08:15, restoring re-blocks them;
       the closure day returns 0 slots; the three bad queries reject with their codes
+- [x] `shared/src/` split into one module per endpoint — `health.ts`, `availability.ts`, barrel
+      `index.ts`; vitest added to the workspace
+- [x] `shared/src/availability.ts` — request, response and error schemas for
+      `GET /api/availability`. 27 tests; 109 green overall
+- [x] `server/src/services/availability-response.ts` — domain result → wire shape, adding the
+      clinic-zone civil date each slot falls under
+- [x] 🎯 `db:availability` now parses a real week through the real serialiser and the real
+      schema: 378 slots over 6 days, 0 filed under the wrong clinic date
 
 ## Current Task
 
-- [ ] Zod request/response schemas in `shared/` for the availability endpoint — loads CONFIRMED appointments only
+- [ ] `GET /api/availability` — wire the route to `findAvailability` +
+      `toAvailabilityResponse`, map `AvailabilityQueryError.code` to a status, verify with curl
 
 ## Next
 
-- [ ] `GET /api/availability` + verify with curl
+- [ ] **Phase 3 — Auth.** Better Auth, and the User↔Patient link
 
 ## Active Blockers
 
@@ -62,6 +71,16 @@ genuinely bookable. The pure function is done; what remains is wiring it to Post
 
 ## Recent Decisions
 
+- Dates cross the wire as `YYYY-MM-DD` and parse straight to `{year, month, day}` — never
+  through a `Date`, which would be UTC midnight and so the previous evening in the clinic
+- Each slot carries the clinic-zone civil `date` it falls under, so the client groups by a
+  string instead of redoing timezone arithmetic the server already knows the answer to
+- The response sends providers as a map keyed by id, and only those with a free slot — the
+  name would otherwise repeat on hundreds of slots, and the full roster would leak which
+  providers exist but are fully booked
+- No operatory name on the wire. The room is not the patient's choice, so only the id travels
+- `MAX_AVAILABILITY_DAYS` is deliberately *not* enforced in the shared schema — one home for
+  the number, on the server; the query layer rejects and the route maps it to a 400
 - Services are addressed by `slug`, not id — stable, already unique, keeps UUIDs out of the
   public URL and makes a query readable in a log
 - The loader fetches **every** CONFIRMED appointment in the window, not just the queried
