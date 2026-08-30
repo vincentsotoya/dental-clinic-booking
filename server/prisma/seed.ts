@@ -17,6 +17,7 @@
 import { prisma } from '../src/db'
 import { env } from '../src/env'
 import type { Prisma } from '../generated/prisma/client'
+import { createClinicCalendar, type ClinicDate } from '../src/services/clinic-time'
 
 // ---------------------------------------------------------------------------
 // Ids
@@ -64,78 +65,14 @@ const appointmentIds = {
 
 // WorkingHours are integers and dodge timezones entirely (see schema.prisma).
 // Appointments cannot: they are real `timestamptz` instants that have to land
-// on the right *wall clock* in the clinic's zone. The offset is resolved from
-// the zone itself rather than hardcoded as -04:00, because hardcoding an
-// offset is precisely the bug Phase 2's DST test exists to catch — seeding it
-// in would be embarrassing.
+// on the right *wall clock* in the clinic's zone. That conversion lives in
+// `src/services/clinic-time.ts`, shared with the availability engine — the
+// offset is resolved from the zone itself rather than hardcoded as -04:00,
+// because hardcoding an offset is precisely the bug Phase 2's DST test exists
+// to catch.
 
-/** A civil date in the clinic's calendar. No time, no zone, no instant. */
-type ClinicDate = { year: number; month: number; day: number }
-
-const clinicFormatter = new Intl.DateTimeFormat('en-US', {
-  timeZone: env.CLINIC_TIMEZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hourCycle: 'h23',
-})
-
-/** Pull one numeric field out of formatToParts without indexing blindly. */
-function part(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes): number {
-  const found = parts.find((p) => p.type === type)
-  if (!found) throw new Error(`Intl produced no "${type}" part for ${env.CLINIC_TIMEZONE}`)
-  return Number(found.value)
-}
-
-/** How far ahead of UTC the clinic's clock is running at a given instant. */
-function zoneOffsetMs(instant: Date): number {
-  const parts = clinicFormatter.formatToParts(instant)
-  const wallClockAsIfUtc = Date.UTC(
-    part(parts, 'year'),
-    part(parts, 'month') - 1,
-    part(parts, 'day'),
-    part(parts, 'hour'),
-    part(parts, 'minute'),
-    part(parts, 'second'),
-  )
-  return wallClockAsIfUtc - instant.getTime()
-}
-
-/**
- * The instant at which the clinic's clock reads `date` at `minuteOfDay`
- * (minutes from midnight, matching WorkingHours).
- *
- * Two passes: guess the instant by pretending the wall clock is UTC, measure
- * the real offset there, correct, then measure again. The second pass matters
- * only near a DST boundary, where the first guess can land on the wrong side
- * of the transition and read an offset an hour off.
- */
-function clinicInstant(date: ClinicDate, minuteOfDay: number): Date {
-  // Date.UTC normalises out-of-range values, so minute 780 is simply 13:00 and
-  // minute 1440 is midnight the following day.
-  const wallClock = Date.UTC(date.year, date.month - 1, date.day, 0, minuteOfDay)
-  const firstGuess = wallClock - zoneOffsetMs(new Date(wallClock))
-  return new Date(wallClock - zoneOffsetMs(new Date(firstGuess)))
-}
-
-/** Today's date on the clinic's calendar — not the server's. */
-function clinicToday(): ClinicDate {
-  const parts = clinicFormatter.formatToParts(new Date())
-  return { year: part(parts, 'year'), month: part(parts, 'month'), day: part(parts, 'day') }
-}
-
-/** Civil date arithmetic. Safe in UTC — no DST, because there is no time here. */
-function addDays(date: ClinicDate, days: number): ClinicDate {
-  const shifted = new Date(Date.UTC(date.year, date.month - 1, date.day + days))
-  return {
-    year: shifted.getUTCFullYear(),
-    month: shifted.getUTCMonth() + 1,
-    day: shifted.getUTCDate(),
-  }
-}
+const calendar = createClinicCalendar(env.CLINIC_TIMEZONE)
+const { clinicInstant, addDays, iso } = calendar
 
 /**
  * The Monday after today, always strictly in the future.
@@ -146,16 +83,9 @@ function addDays(date: ClinicDate, days: number): ClinicDate {
  * of now while the ids stay fixed.
  */
 function nextMonday(): ClinicDate {
-  const today = clinicToday()
+  const today = calendar.today()
   const weekday = new Date(Date.UTC(today.year, today.month - 1, today.day)).getUTCDay()
   return addDays(today, (8 - weekday) % 7 || 7)
-}
-
-/** `2026-09-07` — for the summary log only. */
-function iso(date: ClinicDate): string {
-  const month = String(date.month).padStart(2, '0')
-  const day = String(date.day).padStart(2, '0')
-  return `${date.year}-${month}-${day}`
 }
 
 // ---------------------------------------------------------------------------
