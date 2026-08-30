@@ -65,5 +65,11 @@ Until then a walk-in who registers online has two records — the chart the clin
 their signup made. Merging them is a front-desk action in Phase 7, not something the patient can
 trigger by typing an email address.
 
+That forces `patients.email` to drop its unique index, which is the rule's visible cost in the
+schema: two charts may share an address. It is also the more honest model. An email was never an
+identity here — it is a way to reach someone, and two family members sharing one inbox was always
+going to happen. Identity is `user.email`, which Better Auth keeps unique, and which a password
+defends.
+
 Every handler that returns patient data must be scoped. That is a property the permission matrix
 tests route by route, because it cannot be enforced by a type.

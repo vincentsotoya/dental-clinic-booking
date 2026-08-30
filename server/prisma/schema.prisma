@@ -96,12 +96,29 @@ model Provider {
 /// User via Better Auth and links it here one-to-one.
 
 model Patient {
-  id          String    @id @default(uuid()) @db.Uuid
-  firstName   String    @map("first_name")
-  lastName    String    @map("last_name")
-  email       String    @unique
+  id        String @id @default(uuid()) @db.Uuid
+  firstName String @map("first_name")
+  lastName  String @map("last_name")
+
+  /// Contact detail, deliberately NOT unique and deliberately not an identity.
+  /// A walk-in charted by the front desk and the account that same person later
+  /// registers are two rows with one email, because signup never adopts an
+  /// existing chart on the strength of an unverified address (ADR-0007).
+  /// Identity is `user.email`, which Better Auth does keep unique.
+  email String
+
   phone       String?
   dateOfBirth DateTime? @map("date_of_birth") @db.Date
+
+  /// The login this chart belongs to, if any. Nullable because the clinic
+  /// charts people who never register, and unique because a login has one
+  /// chart.
+  ///
+  /// A plain column rather than a Prisma relation: the opposite side would be a
+  /// field on User, which `npx auth generate` rewrites (ADR-0006). The foreign
+  /// key is real and lives in the migration SQL, with ON DELETE SET NULL —
+  /// deleting a login must never delete a medical record.
+  userId String? @unique @map("user_id")
 
   /// Months between routine cleanings. What makes a patient "due".
   recallIntervalMonths Int @default(6) @map("recall_interval_months")
@@ -116,6 +133,7 @@ model Patient {
 
   appointments Appointment[]
 
+  @@index([email])
   @@map("patients")
 }
 

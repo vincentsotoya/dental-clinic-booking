@@ -67,6 +67,51 @@ export const auth = betterAuth({
       lastName: { type: 'string', required: true, input: true },
     },
   },
+
+  databaseHooks: {
+    user: {
+      create: {
+        /**
+         * Give every new patient login a chart, so "signed up" and "can book"
+         * are the same state.
+         *
+         * The chart is always new. Adopting an unlinked Patient with a matching
+         * email would be the friendlier behaviour and is the reason
+         * `patients.email` is no longer unique — but until Phase 10 verifies an
+         * address, an email in a signup body is a claim, and honouring it hands
+         * over an appointment history, a date of birth and insurance details to
+         * whoever guessed it. See ADR-0007.
+         *
+         * Only for PATIENT. An admin administers the schedule and receives no
+         * care, so a chart for one would be a row that means nothing.
+         *
+         * Failure window, accepted knowingly: this runs *after* the user
+         * transaction commits, so if the insert below fails the login exists
+         * with no chart. `GET /api/me` then answers `patient: null` and booking
+         * is refused — visible and recoverable at the front desk. The
+         * alternative, creating the chart lazily on first read, makes a GET
+         * write, which is a worse property than a rare, loud inconsistency.
+         */
+        after: async (user) => {
+          if (user.role !== 'PATIENT') return
+
+          // Keyed on userId rather than created blindly: the hook is cheap to
+          // re-run and this makes a retry idempotent instead of duplicating a
+          // chart.
+          await prisma.patient.upsert({
+            where: { userId: user.id },
+            create: {
+              userId: user.id,
+              firstName: String(user.firstName ?? ''),
+              lastName: String(user.lastName ?? ''),
+              email: user.email,
+            },
+            update: {},
+          })
+        },
+      },
+    },
+  },
 })
 
 export type Auth = typeof auth

@@ -62,14 +62,20 @@ that makes "patient A cannot touch patient B's anything" a tested property rathe
 - [x] 🎯 The role CHECK proven against the real table: `ADMIN` and `PATIENT` accepted, `WIZARD`
       and the empty string rejected
 
+- [x] `Patient.userId` nullable + unique with a hand-added FK; `patients.email` unique index
+      dropped; signup hook creates a fresh chart — migration `20260830150840_link_patient_to_user`
+- [x] 🎯 Proven against real rows: signing up as `elena.marsh@example.com` creates a **new** chart
+      and leaves hers unlinked, a body claiming `role: "ADMIN"` produces a `PATIENT`, and deleting
+      a login leaves the chart standing with `user_id` back to null
+
 ## Current Task
 
-- [ ] `Patient.userId` nullable + unique, and the signup hook that creates a fresh chart
+- [ ] Seed grows logins — two patients and an admin, via `auth.api.signUpEmail`
 
 ## Next
 
-- [ ] Seed grows logins — two patients and an admin, via `auth.api.signUpEmail`
 - [ ] Error envelope generalised into `shared/src/errors.ts`
+- [ ] `requireAuth` / `requireRole` / `requireOwnership` + `GET /api/me`
 
 ## Active Blockers
 
@@ -88,6 +94,13 @@ that makes "patient A cannot touch patient B's anything" a tested property rathe
   banning and a permissions DSL nothing here needs
 - `role` is `TEXT` + a `CHECK`, not a Prisma enum: the generator emits a string and rewrites
   those models on every upgrade, so the constraint lives in migration SQL instead
+- `patients.user_id` is a plain column, not a Prisma relation — the opposite half would be a
+  field on the regenerated `User`. The FK is hand-written, `ON DELETE SET NULL`: deleting a login
+  must never delete a medical record
+- `patients.email` is no longer unique. Two charts may share an address; identity is `user.email`
+- The signup hook runs *after* the user transaction commits, so a failed chart insert leaves a
+  login with no chart — visible as `patient: null`, recoverable at the front desk. Creating the
+  chart lazily on first read was rejected: a GET that writes is the worse property
 - Regenerate with `npx auth generate`, never `npx @better-auth/cli` — the latter is deprecated,
   lags the library, and silently omits `Account.issuer`
 - Signup collects `firstName` and `lastName` as separate fields; `User.name` is their join.
