@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   availabilityError,
+  availabilityErrorCode,
   availabilityQuery,
   availabilityResponse,
   toIsoDate,
@@ -162,8 +163,8 @@ describe('availabilityResponse', () => {
 })
 
 describe('availabilityError', () => {
-  it('accepts every code the query layer can throw', () => {
-    for (const code of ['SERVICE_NOT_FOUND', 'RANGE_INVERTED', 'RANGE_TOO_LONG', 'INVALID_QUERY']) {
+  it('accepts every code the contract declares', () => {
+    for (const code of availabilityErrorCode.options) {
       expect(availabilityError.safeParse({ error: { code, message: 'nope' } }).success).toBe(true)
     }
   })

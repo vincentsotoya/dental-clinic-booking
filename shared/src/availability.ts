@@ -154,17 +154,24 @@ export type AvailabilitySlot = z.infer<typeof availabilitySlot>
 export type AvailabilityResponse = z.infer<typeof availabilityResponse>
 
 /**
- * The error body for a rejected query, and the codes that produce it.
+ * The error body, and every code that can produce it.
  *
  * The code is what the client switches on — an unknown slug and a range that
  * is too long are both 400-ish to a browser but say very different things to a
  * user, and neither should be distinguished by matching on prose.
+ *
+ * One envelope for the whole endpoint, `INTERNAL` included, so a client parses
+ * a single shape rather than a happy path, an error path, and a third thing
+ * for when the server falls over. `INTERNAL` always carries a fixed message:
+ * the underlying error may name a table or a connection string, and none of
+ * that belongs on the wire.
  */
 export const availabilityErrorCode = z.enum([
   'SERVICE_NOT_FOUND',
   'RANGE_INVERTED',
   'RANGE_TOO_LONG',
   'INVALID_QUERY',
+  'INTERNAL',
 ])
 
 export const availabilityError = z.object({
