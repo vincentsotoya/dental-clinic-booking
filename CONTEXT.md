@@ -21,8 +21,19 @@ A Provider of type `HYGIENIST`. Delivers cleanings on an independent schedule; d
 Dentist present to be booked.
 
 **Patient**:
-A person who receives care. Distinct from the User account used to log in — one User, one Patient.
+A person who receives care. Distinct from the User account used to log in: a Patient has at most
+one User, and may have none — the clinic charts walk-ins who never register.
 _Avoid_: Client, customer, account
+
+**User**:
+A login identity. Carries a role and nothing clinical. A User with the patient role has exactly one
+Patient; an Admin has none.
+_Avoid_: Account, login, profile, member
+
+**Admin**:
+A User who runs the clinic's schedule — the front desk. Not a Provider: an Admin delivers no care
+and occupies no schedule of their own, and a Provider does not automatically have a login.
+_Avoid_: Staff, receptionist, manager, superuser
 
 ### Places and time
 

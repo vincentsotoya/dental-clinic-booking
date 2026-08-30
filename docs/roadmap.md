@@ -59,11 +59,19 @@ Goal: given a service and a date range, compute which slots are genuinely bookab
 
 ## Phase 3 — Auth
 
-- [ ] **(C)** Better Auth configured against Prisma/Postgres
-- [ ] **(V)** `role` on User + migration
-- [ ] **(V)** `requireAuth`, `requireRole(...)`, `requireOwnership` middleware
-- [ ] **(V)** Authz tests — patient A cannot touch patient B's anything
-- [ ] **(C)** Client session hook + protected routes
+Server only. The session hook and protected routes moved to Phase 5, where the router and the
+typed API client they depend on are built — see ADR-0006 and ADR-0007 for what was settled.
+
+- [ ] **(C)** Better Auth against Prisma/Postgres; `role` as an `additionalFields` with
+      `input: false`; `BETTER_AUTH_SECRET` through `env.ts`
+- [ ] **(C)** `Patient.userId` nullable + unique, and the signup hook that creates a fresh chart
+- [ ] **(C)** Seed grows logins — two patients and an admin, via `auth.api.signUpEmail`
+- [ ] **(C)** Error envelope generalised into `shared/src/errors.ts` — auth codes are not
+      availability codes
+- [ ] **(C)** `requireAuth`, `requireRole(...)`, `requireOwnership`, and `GET /api/me` for them
+      to guard
+- [ ] **(C)** Authz tests — the stubbed permission matrix, plus 🎯 `npm run db:authz` proving
+      patient A cannot touch patient B's anything over real cookies
 
 ## Phase 4 — Booking API
 
@@ -81,6 +89,8 @@ Goal: given a service and a date range, compute which slots are genuinely bookab
 - [ ] **(S)** `/design-taste-frontend` — visual direction before building
 - [ ] **(S)** `/pick-ui-library`
 - [ ] **(C)** Typed API client + TanStack Query
+- [ ] **(C)** Session hook over `GET /api/me` + protected routes — moved from Phase 3, which had
+      no router to protect
 - [ ] **(V)** Home, Services, Dentists pages
 - [ ] **(V)** Booking flow: ServicePicker → DentistPicker → Calendar → SlotGrid → Confirm
 - [ ] **(V)** Handle `SLOT_TAKEN` 409 gracefully — refetch and explain
