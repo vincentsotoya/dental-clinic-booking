@@ -52,14 +52,24 @@ that makes "patient A cannot touch patient B's anything" a tested property rathe
       and restoring re-blocks them, proving the CONFIRMED-only filter against real rows
 - [x] **Phase 2 complete** — 125 tests green
 
+- [x] Phase 3 design settled by a `/grill-with-docs` session → ADR-0006, ADR-0007, `CONTEXT.md`
+      gains **User** and **Admin**, Phase 3 rescoped to the server in `docs/roadmap.md`
+
+- [x] Better Auth 1.7.2 against Prisma/Postgres — `server/src/auth.ts`, `BETTER_AUTH_SECRET` /
+      `BETTER_AUTH_URL` / `CLIENT_ORIGIN` through `env.ts`
+- [x] Migration `20260830060324_add_better_auth` — the four generated tables, hand-extended with
+      a `user_role_valid` CHECK
+- [x] 🎯 The role CHECK proven against the real table: `ADMIN` and `PATIENT` accepted, `WIZARD`
+      and the empty string rejected
+
 ## Current Task
 
-- [ ] Better Auth configured against Prisma/Postgres
+- [ ] `Patient.userId` nullable + unique, and the signup hook that creates a fresh chart
 
 ## Next
 
-- [ ] **(V)** `role` on User + migration
-- [ ] **(V)** `requireAuth`, `requireRole(...)`, `requireOwnership` middleware
+- [ ] Seed grows logins — two patients and an admin, via `auth.api.signUpEmail`
+- [ ] Error envelope generalised into `shared/src/errors.ts`
 
 ## Active Blockers
 
@@ -67,6 +77,28 @@ that makes "patient A cannot touch patient B's anything" a tested property rathe
 
 ## Recent Decisions
 
+- Ownership is a WHERE clause and a stranger's row is a 404; signup never adopts a chart by
+  unverified email — see ADR-0007
+- Better Auth's four tables keep the library's conventions, and `/api/auth/*` keeps its error
+  dialect — see ADR-0006
+- Roles are `PATIENT | ADMIN`. A provider login is a Phase 7 decision with Phase 7 requirements
+  in front of it
+- `role` is a Better Auth `additionalFields` with `input: false` — without that, a signup body
+  carrying `role: "ADMIN"` mints an admin. Not the `admin` plugin, which brings impersonation,
+  banning and a permissions DSL nothing here needs
+- `role` is `TEXT` + a `CHECK`, not a Prisma enum: the generator emits a string and rewrites
+  those models on every upgrade, so the constraint lives in migration SQL instead
+- Regenerate with `npx auth generate`, never `npx @better-auth/cli` — the latter is deprecated,
+  lags the library, and silently omits `Account.issuer`
+- Signup collects `firstName` and `lastName` as separate fields; `User.name` is their join.
+  Splitting one name on a space is wrong for *van der Berg*, and wrong silently
+- `GET /api/me` answers `200 { user: null }` when anonymous, so it is the one route deliberately
+  **not** behind `requireAuth` — "who am I?" has a valid answer for a stranger, and a 401 on
+  every cold load is an error Phase 5's query client would retry and log
+- `auth` is an `AppDeps` dependency like `db`, and its handler mounts **above** `express.json()`
+  — a body parser consumes the stream and Better Auth then sees nothing
+- Auth error codes live in `shared/src/errors.ts`, not in `AvailabilityErrorCode`. Extending the
+  availability enum would make that contract claim it can return `FORBIDDEN`
 - Routers are factories taking `{ db, timeZone, now }` — the same injection the engine and the
   calendar already use. Route tests drive real routing and real schemas over a stub, needing
   neither Postgres nor a `.env`

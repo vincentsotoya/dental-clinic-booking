@@ -12,6 +12,17 @@
 // Column and table names are mapped to snake_case. Postgres folds unquoted
 // identifiers to lowercase, so a camelCase column has to be double-quoted in
 // every hand-written statement; snake_case avoids that entirely.
+//
+// That convention stops at User/Session/Account/Verification. Those four are
+// emitted by `npx auth generate` and regenerated on every Better Auth upgrade,
+// so they keep the library's own naming and are never hand-edited — see
+// docs/adr/0006. Anything we need to enforce on them goes in the migration SQL
+// instead, where a regenerate cannot silently drop it. Regenerate with:
+//
+//   npx auth@latest generate --config src/auth.ts --output prisma/schema.prisma
+//
+// (`npx @better-auth/cli` is the deprecated one and lags the library — it omits
+// Account.issuer, which fails at runtime rather than at generate time.)
 
 generator client {
   provider = "prisma-client"
@@ -35,6 +46,7 @@ enum ProviderType {
 /// No PENDING. A booking is confirmed the moment it is created — there is no
 /// held or provisional state. This is why the exclusion constraints can filter
 /// on status = 'CONFIRMED' and why cancelling frees a slot immediately.
+
 enum AppointmentStatus {
   CONFIRMED
   CANCELLED
@@ -59,6 +71,7 @@ enum Weekday {
 /// Anyone who delivers care and therefore owns a schedule. Never called
 /// "Dentist" — a dentist is a Provider whose type is DENTIST. Hygienists book
 /// independently and do not need a dentist present (ADR-0002).
+
 model Provider {
   id        String       @id @default(uuid()) @db.Uuid
   type      ProviderType
@@ -81,6 +94,7 @@ model Provider {
 
 /// A person who receives care. Distinct from the login account: Phase 3 adds a
 /// User via Better Auth and links it here one-to-one.
+
 model Patient {
   id          String    @id @default(uuid()) @db.Uuid
   firstName   String    @map("first_name")
@@ -112,6 +126,7 @@ model Patient {
 /// A treatment room and its chair — a finite, physically bookable resource.
 /// The three in the seed are interchangeable; an appointment consumes one for
 /// its whole blocked range.
+
 model Operatory {
   id       String  @id @default(uuid()) @db.Uuid
   name     String  @unique
@@ -124,6 +139,7 @@ model Operatory {
 
 /// A bookable treatment. Duration and buffer live here and are copied onto the
 /// appointment at booking time.
+
 model Service {
   id          String  @id @default(uuid()) @db.Uuid
   name        String
@@ -169,6 +185,7 @@ model Service {
 /// Times are minutes from midnight in the clinic's timezone (480 = 08:00), not
 /// timestamps. Working hours are wall-clock rules, not instants — storing them
 /// as integers keeps them out of timezone and DST arithmetic entirely.
+
 model WorkingHours {
   id          String  @id @default(uuid()) @db.Uuid
   providerId  String  @map("provider_id") @db.Uuid
@@ -184,6 +201,7 @@ model WorkingHours {
 
 /// A dated range during which one provider is unavailable. Applies to that
 /// provider only — for the whole clinic, see ClinicClosure.
+
 model TimeOff {
   id         String   @id @default(uuid()) @db.Uuid
   providerId String   @map("provider_id") @db.Uuid
@@ -202,6 +220,7 @@ model TimeOff {
 /// nullable provider — the two are subtracted at different points in the
 /// availability calculation, and a nullable FK would let one row mean two
 /// different things.
+
 model ClinicClosure {
   id       String   @id @default(uuid()) @db.Uuid
   startsAt DateTime @map("starts_at") @db.Timestamptz(6)
@@ -226,6 +245,7 @@ model ClinicClosure {
 /// blockedUntil must be a stored column: `timestamptz + interval` is STABLE
 /// rather than IMMUTABLE so no index expression may compute it, and the buffer
 /// lives on Service, which a constraint cannot join to. See ADR-0004.
+
 model Appointment {
   id          String @id @default(uuid()) @db.Uuid
   patientId   String @map("patient_id") @db.Uuid
@@ -258,4 +278,73 @@ model Appointment {
   @@index([providerId, startsAt])
   @@index([status, startsAt])
   @@map("appointments")
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  role          String    @default("PATIENT")
+  firstName     String
+  lastName      String
+  sessions      Session[]
+  accounts      Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  issuer String
+
+  @@index([userId])
+  @@map("account")
+  @@unique([issuer, accountId], map: "account_issuer_accountId_uidx")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }
