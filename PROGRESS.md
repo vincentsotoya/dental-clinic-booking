@@ -82,13 +82,21 @@ that makes "patient A cannot touch patient B's anything" a tested property rathe
       `AvailabilityQueryError` cases prove the handler's single `instanceof ApiError` catches the
       subclass, and the happy path still answers with slots
 
+- [x] `/api/auth/*splat` mounted above `express.json()`; `attachSession` / `requireAuth` /
+      `requireRole` in `server/src/middleware/`; `GET /api/me` + `shared/src/me.ts`; `ROLES`
+      moved to `shared` — ADR-0008
+- [x] 🎯 Real cookies over real HTTP for the first time: sign-in returns a session token,
+      `/api/me` resolves Marsh's seeded chart (the one with 5 appointments) and withholds her
+      insurance, the admin comes back `patient: null`, a forged cookie reads anonymous rather
+      than 500, and a replayed token after sign-out is dead
+
 ## Current Task
 
-- [ ] `requireAuth` / `requireRole` / `requireOwnership` + `GET /api/me`
+- [ ] Authz tests + 🎯 `npm run db:authz` over real cookies
 
 ## Next
 
-- [ ] Authz tests + 🎯 `npm run db:authz` over real cookies
+- [ ] Phase 4 — booking API, opening with `requireOwnership` and its first callers
 
 ## Active Blockers
 
@@ -127,11 +135,24 @@ that makes "patient A cannot touch patient B's anything" a tested property rathe
   lags the library, and silently omits `Account.issuer`
 - Signup collects `firstName` and `lastName` as separate fields; `User.name` is their join.
   Splitting one name on a space is wrong for *van der Berg*, and wrong silently
-- `GET /api/me` answers `200 { user: null }` when anonymous, so it is the one route deliberately
-  **not** behind `requireAuth` — "who am I?" has a valid answer for a stranger, and a 401 on
-  every cold load is an error Phase 5's query client would retry and log
-- `auth` is an `AppDeps` dependency like `db`, and its handler mounts **above** `express.json()`
-  — a body parser consumes the stream and Better Auth then sees nothing
+- `auth` is an `AppDeps` dependency like `db`; its handler mounts **above** `express.json()`
+  (a body parser consumes the stream) at `/api/auth/*splat` (Express 5 rejects a bare `*`)
+- Resolving a session and enforcing one are separate middlewares over one `resolve`, so
+  `/api/me` can answer a stranger while every other route refuses them. `req.auth` is
+  three-valued — `undefined` means no middleware ran and is a 500, not a 401 — see ADR-0008.
+  That caught a real bug: `createMeRouter` took `attachSession` and forgot to mount it
+- `requireOwnership` deferred to Phase 4. Its signature is dictated by cancel and reschedule,
+  and building it now would be guessing at routes that do not exist
+- `/api/me` reads the chart rather than echoing the login. The two records diverge the first
+  time the front desk merges (Phase 7) or a patient edits their details (Phase 6)
+- `/api/me` sends identity only. DOB, phone and insurance are the schema's most sensitive
+  fields and this route is called on every cold load
+- `ROLES` lives in `shared`, not `server/src/auth.ts` — the client types `/api/me` with it and
+  Phase 7 renders admin navigation from it
+- A guarded request costs two round trips: Better Auth's session lookup, then ours for the chart
+  id. It owns its tables (ADR-0006) and will not join `patients`
+- No CORS middleware. Vite proxies `/api` in dev so requests are same-origin; it becomes a real
+  decision when the client is deployed separately in Phase 11
 - One error vocabulary, many contracts: `apiErrorCode` is the whole registry and each endpoint
   declares a `.extract()` subset of it. Extending the availability enum instead would make that
   contract claim it can return `FORBIDDEN`; `.extract()` is a compile-time proof a subset is drawn

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { availabilityError, availabilityResponse } from '@dental/shared'
 import { createApp } from '../app'
 import type { AvailabilityDb } from '../services/availability-query'
+import { stubAuth, stubPatientDb } from '../test-support/stubs'
 
 // No Postgres and no .env: every dependency is injected, so these tests drive
 // the real routing, the real schemas and the real error mapping over a stub
@@ -37,7 +38,10 @@ function stubDb(service: unknown = SERVICE): AvailabilityDb {
 
 function app(db: AvailabilityDb = stubDb()) {
   return createApp({
-    db,
+    // Availability is public; the auth half of AppDeps is here only because
+    // createApp mounts the session middleware.
+    db: { ...db, ...stubPatientDb(null) },
+    auth: stubAuth(null),
     databaseIsReachable: async () => true,
     timeZone: 'America/New_York',
     now: () => new Date('2026-01-01T00:00:00.000Z'),

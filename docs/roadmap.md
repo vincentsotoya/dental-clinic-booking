@@ -62,20 +62,23 @@ Goal: given a service and a date range, compute which slots are genuinely bookab
 Server only. The session hook and protected routes moved to Phase 5, where the router and the
 typed API client they depend on are built — see ADR-0006 and ADR-0007 for what was settled.
 
-- [ ] **(C)** Better Auth against Prisma/Postgres; `role` as an `additionalFields` with
+- [x] **(C)** Better Auth against Prisma/Postgres; `role` as an `additionalFields` with
       `input: false`; `BETTER_AUTH_SECRET` through `env.ts`
-- [ ] **(C)** `Patient.userId` nullable + unique, and the signup hook that creates a fresh chart
-- [ ] **(C)** Seed grows logins — two patients and an admin, via `auth.api.signUpEmail`
-- [ ] **(C)** Error envelope generalised into `shared/src/errors.ts` — auth codes are not
+- [x] **(C)** `Patient.userId` nullable + unique, and the signup hook that creates a fresh chart
+- [x] **(C)** Seed grows logins — two patients and an admin, via `auth.api.signUpEmail`
+- [x] **(C)** Error envelope generalised into `shared/src/errors.ts` — auth codes are not
       availability codes
-- [ ] **(C)** `requireAuth`, `requireRole(...)`, `requireOwnership`, and `GET /api/me` for them
-      to guard
+- [x] **(C)** `/api/auth/*` mounted, `attachSession` / `requireAuth` / `requireRole`, and
+      `GET /api/me` — see ADR-0008. `requireOwnership` moved to Phase 4, where its first
+      callers are
 - [ ] **(C)** Authz tests — the stubbed permission matrix, plus 🎯 `npm run db:authz` proving
       patient A cannot touch patient B's anything over real cookies
 
 ## Phase 4 — Booking API
 
 - [ ] **(C)** Explain optimistic insert + catching `23P01`
+- [ ] **(C)** `requireOwnership` — the fetch-then-compare exception (ADR-0007), built here
+      because cancel and reschedule are the routes that need it
 - [ ] **(V)** `POST /api/appointments` — validate → re-check → insert → catch → 409
 - [ ] **(V)** `GET /api/appointments/me`
 - [ ] **(V)** `PATCH /api/appointments/:id/cancel`

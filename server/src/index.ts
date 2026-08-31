@@ -1,10 +1,12 @@
 import { createApp } from './app'
+import { auth } from './auth'
 import { databaseIsReachable, prisma } from './db'
 import { env } from './env'
 
-// The only place the real client and the real environment are wired in.
+// The only place the real client, auth instance and environment are wired in.
 const app = createApp({
   db: prisma,
+  auth,
   databaseIsReachable,
   timeZone: env.CLINIC_TIMEZONE,
 })

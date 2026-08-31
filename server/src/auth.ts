@@ -5,19 +5,15 @@
 // stop at that boundary — see docs/adr/0006. What ownership *means* for the
 // rows on our side of it is docs/adr/0007.
 
+import { type Role, ROLES } from '@dental/shared'
 import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
 import { prisma } from './db'
 import { env } from './env'
 
-/**
- * Two roles, deliberately. A provider login is a Phase 7 decision that needs
- * Phase 7's requirements in front of it, and adding a value to this union later
- * is one migration — far cheaper than designing permissions for a login that
- * does not exist.
- */
-export const ROLES = ['PATIENT', 'ADMIN'] as const
-export type Role = (typeof ROLES)[number]
+// `ROLES` moved to `shared` (the client needs it too); re-exported so the modules
+// importing it from `./auth` keep working.
+export { type Role, ROLES }
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: 'postgresql' }),
