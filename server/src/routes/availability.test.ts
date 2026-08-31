@@ -87,11 +87,11 @@ describe('GET /api/availability — rejections', () => {
     ['no service', '?from=2026-08-31'],
     ['no from', '?service=routine-exam'],
     ['nothing at all', ''],
-  ])('400 INVALID_QUERY for %s', async (_label, query) => {
+  ])('400 INVALID_REQUEST for %s', async (_label, query) => {
     const res = await get(query)
 
     expect(res.status).toBe(400)
-    expect(res.body.error.code).toBe('INVALID_QUERY')
+    expect(res.body.error.code).toBe('INVALID_REQUEST')
     expect(() => availabilityError.parse(res.body)).not.toThrow()
   })
 

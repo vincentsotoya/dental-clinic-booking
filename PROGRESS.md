@@ -74,13 +74,20 @@ that makes "patient A cannot touch patient B's anything" a tested property rathe
       is rejected, both patients keep their fixed chart id with its 5 appointments and insurance,
       the admin has none, and a reseed still ends at 2 charts / 3 logins
 
+- [x] `shared/src/errors.ts` — one `apiErrorCode` registry, `baseErrorCode` / `guardedErrorCode` /
+      `availabilityErrorCode` as `.extract()` subsets of it, `errorBody()` builds the envelope;
+      `server/src/errors.ts` holds one throwable `ApiError`, `INVALID_QUERY` renamed
+      `INVALID_REQUEST`
+- [x] 🎯 All six availability error paths re-curled against the running server: the three
+      `AvailabilityQueryError` cases prove the handler's single `instanceof ApiError` catches the
+      subclass, and the happy path still answers with slots
+
 ## Current Task
 
-- [ ] Error envelope generalised into `shared/src/errors.ts`
+- [ ] `requireAuth` / `requireRole` / `requireOwnership` + `GET /api/me`
 
 ## Next
 
-- [ ] `requireAuth` / `requireRole` / `requireOwnership` + `GET /api/me`
 - [ ] Authz tests + 🎯 `npm run db:authz` over real cookies
 
 ## Active Blockers
@@ -125,8 +132,17 @@ that makes "patient A cannot touch patient B's anything" a tested property rathe
   every cold load is an error Phase 5's query client would retry and log
 - `auth` is an `AppDeps` dependency like `db`, and its handler mounts **above** `express.json()`
   — a body parser consumes the stream and Better Auth then sees nothing
-- Auth error codes live in `shared/src/errors.ts`, not in `AvailabilityErrorCode`. Extending the
-  availability enum would make that contract claim it can return `FORBIDDEN`
+- One error vocabulary, many contracts: `apiErrorCode` is the whole registry and each endpoint
+  declares a `.extract()` subset of it. Extending the availability enum instead would make that
+  contract claim it can return `FORBIDDEN`; `.extract()` is a compile-time proof a subset is drawn
+  from the registry, so an invented code fails the build in `shared` rather than in a route
+- `INVALID_QUERY` is now `INVALID_REQUEST` — one code for any Zod failure, since Phase 4 posts
+  bodies. Renamed while only tests consumed it
+- One `ApiError` class in `server/src/errors.ts`, not one per feature: the handler does a single
+  `instanceof`, and a forgotten per-feature branch would turn a named failure into a 500.
+  `AvailabilityQueryError` stays as a subclass purely to narrow the codes that layer may throw
+- `FORBIDDEN` is a 403 and does not contradict ADR-0007. That ADR is about data addressed by id,
+  where a 403 is an oracle that counts the clinic's bookings. A role check has no such oracle
 - Routers are factories taking `{ db, timeZone, now }` — the same injection the engine and the
   calendar already use. Route tests drive real routing and real schemas over a stub, needing
   neither Postgres nor a `.env`

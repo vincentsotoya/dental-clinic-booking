@@ -11,6 +11,7 @@
 
 import type { PrismaClient } from '../../generated/prisma/client'
 import { MAX_AVAILABILITY_DAYS } from '../config'
+import { ApiError } from '../errors'
 import {
   getAvailableSlots,
   type OperatorySpec,
@@ -35,15 +36,18 @@ export type AvailabilityQueryErrorCode = 'SERVICE_NOT_FOUND' | 'RANGE_INVERTED' 
 /**
  * A query the caller got wrong, as opposed to a database failure.
  *
- * The `code` is what the HTTP layer maps to a status — 404 or 400 — so the
- * route handler never has to match on message strings.
+ * A subclass rather than a bare `ApiError` for the narrowing: this layer
+ * resolves a service and a date range, so `FORBIDDEN` or `UNAUTHENTICATED`
+ * from here would be a category error, and the constructor makes it a compile
+ * error instead. The HTTP layer still matches it as an `ApiError` and needs to
+ * know nothing about availability.
  */
-export class AvailabilityQueryError extends Error {
+export class AvailabilityQueryError extends ApiError {
   constructor(
-    readonly code: AvailabilityQueryErrorCode,
+    override readonly code: AvailabilityQueryErrorCode,
     message: string,
   ) {
-    super(message)
+    super(code, message)
     this.name = 'AvailabilityQueryError'
   }
 }

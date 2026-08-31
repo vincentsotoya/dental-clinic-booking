@@ -19,6 +19,7 @@
 //      client groups by a string and does no timezone arithmetic ever.
 
 import { z } from 'zod'
+import { apiErrorCode, errorBody } from './errors'
 
 /**
  * A civil date — no time, no zone, no instant.
@@ -154,32 +155,26 @@ export type AvailabilitySlot = z.infer<typeof availabilitySlot>
 export type AvailabilityResponse = z.infer<typeof availabilityResponse>
 
 /**
- * The error body, and every code that can produce it.
+ * Every code this endpoint can produce — and, by omission, every code it
+ * cannot. A client that handles these five has handled `/api/availability`
+ * exhaustively; it will never see `FORBIDDEN` here, because this list says so
+ * and `errors.ts` is where anything else would have to have been declared.
  *
  * The code is what the client switches on — an unknown slug and a range that
  * is too long are both 400-ish to a browser but say very different things to a
  * user, and neither should be distinguished by matching on prose.
  *
- * One envelope for the whole endpoint, `INTERNAL` included, so a client parses
- * a single shape rather than a happy path, an error path, and a third thing
- * for when the server falls over. `INTERNAL` always carries a fixed message:
- * the underlying error may name a table or a connection string, and none of
- * that belongs on the wire.
+ * The envelope itself, and why there is only one of it, is in `errors.ts`.
  */
-export const availabilityErrorCode = z.enum([
+export const availabilityErrorCode = apiErrorCode.extract([
   'SERVICE_NOT_FOUND',
   'RANGE_INVERTED',
   'RANGE_TOO_LONG',
-  'INVALID_QUERY',
+  'INVALID_REQUEST',
   'INTERNAL',
 ])
 
-export const availabilityError = z.object({
-  error: z.object({
-    code: availabilityErrorCode,
-    message: z.string(),
-  }),
-})
+export const availabilityError = errorBody(availabilityErrorCode)
 
 export type AvailabilityErrorCode = z.infer<typeof availabilityErrorCode>
 export type AvailabilityError = z.infer<typeof availabilityError>
