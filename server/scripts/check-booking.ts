@@ -12,7 +12,12 @@
 // race". Every row this script writes is deleted before it exits.
 
 import type { Server } from 'node:http'
-import type { AvailabilityResponse, AvailabilitySlot, BookAppointmentResponse } from '@dental/shared'
+import type {
+  AvailabilityResponse,
+  AvailabilitySlot,
+  BookAppointmentResponse,
+  MyAppointmentsResponse,
+} from '@dental/shared'
 import { createApp } from '../src/app'
 import { auth } from '../src/auth'
 import { databaseIsReachable, prisma } from '../src/db'
@@ -201,6 +206,108 @@ async function main() {
     '…but it books the caller’s chart, not the one the body named',
     forgedRow?.patientId === nakamuraChart,
     `${forgedRow?.patientId} vs ${marshChart}`,
+  )
+
+  // --- Reading it back -----------------------------------------------------
+  console.log('\nGET /api/appointments/me')
+
+  const listFor = (session: Session, when = '') =>
+    call<MyAppointmentsResponse>(`/api/appointments/me${when}`, session)
+
+  const mine = await listFor(marsh)
+  const theirs = await listFor(nakamura)
+  const mineIds = (mine.body.appointments ?? []).map((a) => a.id)
+  const theirIds = (theirs.body.appointments ?? []).map((a) => a.id)
+
+  check('a patient reads their own list', mine.status === 200, `got ${mine.status}`)
+  check('the booking just made is in it', id !== undefined && mineIds.includes(id))
+  check('the other patient’s list does not contain it', id !== undefined && !theirIds.includes(id))
+  check(
+    'the two lists are disjoint',
+    mineIds.every((row) => !theirIds.includes(row)),
+    `${mineIds.length} vs ${theirIds.length}`,
+  )
+
+  // The scoping claim against the rows themselves, not against the other list:
+  // a WHERE clause that dropped everything would also look perfectly disjoint.
+  const upcomingOn = (chart: string) =>
+    prisma.appointment.count({ where: { patientId: chart, startsAt: { gte: new Date() } } })
+  const [mineExpected, theirsExpected] = [
+    await upcomingOn(marshChart),
+    await upcomingOn(nakamuraChart),
+  ]
+  check(
+    'the list is every upcoming row on that chart, no more and no fewer',
+    mineIds.length === mineExpected && theirIds.length === theirsExpected,
+    `${mineIds.length}/${mineExpected} and ${theirIds.length}/${theirsExpected}`,
+  )
+
+  const starts = (mine.body.appointments ?? []).map((a) => Date.parse(a.startsAt))
+  check(
+    'upcoming comes back soonest first',
+    starts.every((at, i) => i === 0 || at >= (starts[i - 1] as number)),
+  )
+  check('every row in it is genuinely in the future', starts.every((at) => at >= Date.now() - 60_000))
+
+  // The seed is entirely in the future, so `past` would come back empty and
+  // prove nothing. One backdated row, written directly: the route itself
+  // refuses to book the past, which is the behaviour under test elsewhere.
+  const lastYear = new Date(Date.now() - 365 * 86_400_000)
+  const history = await prisma.appointment.create({
+    data: {
+      patientId: marshChart,
+      providerId: first.providerId,
+      serviceId: (await prisma.service.findUniqueOrThrow({ where: { slug: SERVICE } })).id,
+      operatoryId: first.operatoryId,
+      startsAt: lastYear,
+      endsAt: new Date(lastYear.getTime() + 30 * 60_000),
+      blockedUntil: new Date(lastYear.getTime() + 40 * 60_000),
+      bufferMins: 10,
+      status: 'COMPLETED',
+    },
+    select: { id: true },
+  })
+  written.add(history.id)
+  const past = await listFor(marsh, '?when=past')
+  const all = await listFor(marsh, '?when=all')
+  const pastIds = (past.body.appointments ?? []).map((a) => a.id)
+  const allIds = (all.body.appointments ?? []).map((a) => a.id)
+
+  check('past does not contain a future booking', id !== undefined && !pastIds.includes(id))
+  check('past contains the backdated row', pastIds.includes(history.id), `${pastIds.length} rows`)
+  check('upcoming did not contain it', !mineIds.includes(history.id))
+  // COMPLETED, and still listed: a patient who sees no trace of a visit
+  // concludes the clinic lost it, not that it went well.
+  check(
+    'a COMPLETED row is still the patient’s to see',
+    (past.body.appointments ?? []).some((a) => a.id === history.id && a.status === 'COMPLETED'),
+  )
+  check(
+    'all is exactly upcoming plus past',
+    allIds.length === mineIds.length + pastIds.length &&
+      [...mineIds, ...pastIds].every((row) => allIds.includes(row)),
+    `${allIds.length} vs ${mineIds.length} + ${pastIds.length}`,
+  )
+  check('all spans both sides of now', allIds.includes(history.id) && mineIds.length > 0)
+
+  const row0 = (mine.body.appointments ?? [])[0] as Record<string, unknown> | undefined
+  check(
+    'the room and the blocked range never reach the wire',
+    row0 !== undefined && !('operatoryId' in row0) && !('blockedUntil' in row0),
+  )
+
+  const badWindow = await listFor(marsh, '?when=someday')
+  check(
+    'a window the API does not offer is 400',
+    badWindow.status === 400 && badWindow.body.error?.code === 'INVALID_REQUEST',
+    `${badWindow.status} ${badWindow.body.error?.code}`,
+  )
+  check('a stranger cannot list', (await listFor(ANONYMOUS)).status === 401)
+  const adminList = await listFor(admin)
+  check(
+    'an admin gets 403, not an empty list',
+    adminList.status === 403 && adminList.body.error?.code === 'FORBIDDEN',
+    `${adminList.status} ${adminList.body.error?.code}`,
   )
 
   // --- Refusals no constraint could make -----------------------------------

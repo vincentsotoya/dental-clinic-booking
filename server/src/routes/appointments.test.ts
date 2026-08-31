@@ -1,4 +1,9 @@
-import { bookAppointmentError, bookAppointmentResponse } from '@dental/shared'
+import {
+  bookAppointmentError,
+  bookAppointmentResponse,
+  myAppointmentsError,
+  myAppointmentsResponse,
+} from '@dental/shared'
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../app'
@@ -49,16 +54,21 @@ const NOW = new Date('2026-08-01T00:00:00.000Z')
 
 type CreateArgs = { data: Record<string, unknown> }
 
+type FindManyArgs = { where?: Record<string, unknown>; orderBy?: Record<string, unknown> }
+
 type StubOptions = {
   /** Throw from here to stand in for a constraint rejecting the insert. */
   create?: () => unknown
   service?: unknown
   /** Null models a login with no chart — an admin, or ADR-0007's gap. */
   chart?: typeof PATIENT_CHART | null
+  /** What the list route reads back. The booking path wants this empty. */
+  appointments?: unknown[]
 }
 
 function stubDb(options: StubOptions = {}) {
   const writes: CreateArgs[] = []
+  const reads: FindManyArgs[] = []
 
   const db = {
     ...stubPatientDb(options.chart === undefined ? PATIENT_CHART : options.chart),
@@ -68,7 +78,10 @@ function stubDb(options: StubOptions = {}) {
     timeOff: { findMany: async () => [] },
     clinicClosure: { findMany: async () => [] },
     appointment: {
-      findMany: async () => [],
+      findMany: async (args: FindManyArgs = {}) => {
+        reads.push(args)
+        return options.appointments ?? []
+      },
       create: async (args: CreateArgs) => {
         writes.push(args)
         if (options.create) return options.create()
@@ -82,7 +95,7 @@ function stubDb(options: StubOptions = {}) {
     },
   }
 
-  return { db: { ...db, ...stubTransaction(db) }, writes }
+  return { db: { ...db, ...stubTransaction(db) }, writes, reads }
 }
 
 function post(user: StubUser | null, body: object, db: ReturnType<typeof stubDb>['db'] = stubDb().db) {
@@ -217,5 +230,128 @@ describe('POST /api/appointments', () => {
     expect(res.status).toBe(500)
     expect(res.body.error.code).toBe('INTERNAL')
     expect(res.body.error.message).toBe('Something went wrong.')
+  })
+})
+
+const ROW = {
+  id: '5f2b8c00-0000-4000-8000-0000000000a1',
+  status: 'CONFIRMED',
+  startsAt: new Date('2026-09-01T14:15:00.000Z'),
+  endsAt: new Date('2026-09-01T14:45:00.000Z'),
+  notes: null,
+  service: { id: SERVICE.id, slug: SERVICE.slug, name: SERVICE.name, durationMins: 30 },
+  provider: {
+    id: PROVIDER.id,
+    type: PROVIDER.type,
+    firstName: PROVIDER.firstName,
+    lastName: PROVIDER.lastName,
+    title: PROVIDER.title,
+  },
+}
+
+function list(user: StubUser | null, query = '', db = stubDb({ appointments: [ROW] })) {
+  const app = createApp({
+    db: db.db,
+    auth: stubAuth(user),
+    databaseIsReachable: async () => true,
+    timeZone: 'America/New_York',
+    now: () => NOW,
+  } as unknown as Parameters<typeof createApp>[0])
+
+  return { res: request(app).get(`/api/appointments/me${query}`), db }
+}
+
+describe('GET /api/appointments/me', () => {
+  it('answers 200 with a body matching the shared contract', async () => {
+    const res = await list(PATIENT_USER).res
+
+    expect(res.status).toBe(200)
+    expect(() => myAppointmentsResponse.parse(res.body)).not.toThrow()
+    expect(res.body.appointments).toHaveLength(1)
+    expect(res.body.appointments[0].id).toBe(ROW.id)
+    expect(res.body.appointments[0].provider.lastName).toBe('Okonkwo')
+  })
+
+  // The property ADR-0007 is about: a stranger's row is never in the answer,
+  // rather than filtered out of it afterwards.
+  it('puts the caller’s chart id in the WHERE clause', async () => {
+    const stub = list(PATIENT_USER)
+    await stub.res
+
+    expect(stub.db.reads[0]?.where?.patientId).toBe(PATIENT_CHART.id)
+  })
+
+  it('defaults to upcoming, soonest first', async () => {
+    const stub = list(PATIENT_USER)
+    const res = await stub.res
+
+    expect(res.body.when).toBe('upcoming')
+    expect(stub.db.reads[0]?.where?.startsAt).toEqual({ gte: NOW })
+    expect(stub.db.reads[0]?.orderBy).toEqual({ startsAt: 'asc' })
+  })
+
+  it('flips the bound and the order for past', async () => {
+    const stub = list(PATIENT_USER, '?when=past')
+    const res = await stub.res
+
+    expect(res.body.when).toBe('past')
+    expect(stub.db.reads[0]?.where?.startsAt).toEqual({ lt: NOW })
+    expect(stub.db.reads[0]?.orderBy).toEqual({ startsAt: 'desc' })
+  })
+
+  it('drops the time bound entirely for all, keeping the chart scope', async () => {
+    const stub = list(PATIENT_USER, '?when=all')
+    await stub.res
+
+    expect(stub.db.reads[0]?.where).toEqual({ patientId: PATIENT_CHART.id })
+  })
+
+  // A patient who cancelled yesterday and sees no trace of it concludes the
+  // clinic lost it, not that the cancellation worked.
+  it('includes cancelled and completed rows', async () => {
+    const rows = [
+      { ...ROW, status: 'CANCELLED' },
+      { ...ROW, id: '5f2b8c00-0000-4000-8000-0000000000a2', status: 'COMPLETED' },
+    ]
+    const res = await list(PATIENT_USER, '?when=all', stubDb({ appointments: rows })).res
+
+    expect(res.status).toBe(200)
+    expect(res.body.appointments.map((a: { status: string }) => a.status)).toEqual([
+      'CANCELLED',
+      'COMPLETED',
+    ])
+  })
+
+  it('never sends the room or the blocked range', async () => {
+    const res = await list(PATIENT_USER).res
+
+    expect(res.body.appointments[0]).not.toHaveProperty('operatoryId')
+    expect(res.body.appointments[0]).not.toHaveProperty('blockedUntil')
+  })
+
+  it('rejects a window it does not offer with 400', async () => {
+    const res = await list(PATIENT_USER, '?when=someday').res
+
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('INVALID_REQUEST')
+    expect(() => myAppointmentsError.parse(res.body)).not.toThrow()
+  })
+
+  it('refuses a stranger with 401', async () => {
+    const res = await list(null).res
+
+    expect(res.status).toBe(401)
+    expect(res.body.error.code).toBe('UNAUTHENTICATED')
+  })
+
+  // "You have no appointments" and "this account cannot have any" are different
+  // claims, and only one of them is true for an admin.
+  it('refuses an account with no chart with 403, not an empty list', async () => {
+    const stub = list(ADMIN_USER, '', stubDb({ chart: null, appointments: [ROW] }))
+    const res = await stub.res
+
+    expect(res.status).toBe(403)
+    expect(res.body.error.code).toBe('FORBIDDEN')
+    expect(stub.db.reads).toHaveLength(0)
   })
 })

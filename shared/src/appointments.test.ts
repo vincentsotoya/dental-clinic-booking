@@ -3,6 +3,9 @@ import {
   bookAppointmentError,
   bookAppointmentRequest,
   bookAppointmentResponse,
+  myAppointmentsError,
+  myAppointmentsQuery,
+  myAppointmentsResponse,
 } from './appointments'
 
 const VALID = {
@@ -109,5 +112,52 @@ describe('bookAppointmentError', () => {
     expect(
       bookAppointmentError.safeParse({ error: { code: 'RANGE_TOO_LONG', message: 'x' } }).success,
     ).toBe(false)
+  })
+})
+
+describe('myAppointmentsQuery', () => {
+  // The screen opens on it, and it is the one window bounded by reality.
+  it('defaults to upcoming when the client says nothing', () => {
+    expect(myAppointmentsQuery.parse({})).toEqual({ when: 'upcoming' })
+  })
+
+  it.each(['upcoming', 'past', 'all'])('accepts %s', (when) => {
+    expect(myAppointmentsQuery.safeParse({ when }).success).toBe(true)
+  })
+
+  it('rejects a window it does not offer', () => {
+    expect(myAppointmentsQuery.safeParse({ when: 'someday' }).success).toBe(false)
+    expect(myAppointmentsQuery.safeParse({ when: '' }).success).toBe(false)
+  })
+})
+
+describe('myAppointmentsResponse', () => {
+  it('echoes the window back alongside the rows', () => {
+    const parsed = myAppointmentsResponse.parse({ when: 'past', appointments: [APPOINTMENT] })
+
+    expect(parsed.when).toBe('past')
+    expect(parsed.appointments).toHaveLength(1)
+  })
+
+  it('accepts an empty list — having none is a real answer', () => {
+    expect(
+      myAppointmentsResponse.safeParse({ when: 'upcoming', appointments: [] }).success,
+    ).toBe(true)
+  })
+
+  it.each(['CANCELLED', 'COMPLETED', 'NO_SHOW'])('carries a %s row', (status) => {
+    const body = { when: 'all', appointments: [{ ...APPOINTMENT, status }] }
+    expect(myAppointmentsResponse.safeParse(body).success).toBe(true)
+  })
+})
+
+describe('myAppointmentsErrorCode', () => {
+  it.each(['UNAUTHENTICATED', 'FORBIDDEN', 'INVALID_REQUEST', 'INTERNAL'])('admits %s', (code) => {
+    expect(myAppointmentsError.safeParse({ error: { code, message: 'x' } }).success).toBe(true)
+  })
+
+  // Addressed by the session, not by an id, so nothing can be probed for.
+  it.each(['NOT_FOUND', 'SLOT_TAKEN', 'SERVICE_NOT_FOUND'])('does not admit %s', (code) => {
+    expect(myAppointmentsError.safeParse({ error: { code, message: 'x' } }).success).toBe(false)
   })
 })

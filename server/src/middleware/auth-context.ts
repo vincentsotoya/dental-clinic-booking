@@ -54,3 +54,24 @@ export function getAuth(req: Request): SessionContext {
 
   return req.auth
 }
+
+/**
+ * The caller's own chart, for a route that is only meaningful against one.
+ *
+ * An admin has no chart, and nor does a login in ADR-0007's gap where signup
+ * created one and the hook failed. Both are `FORBIDDEN` rather than an empty
+ * answer: "you have no appointments" is a different claim from "this kind of
+ * account cannot have any", and only one of them is true.
+ *
+ * FORBIDDEN does not contradict ADR-0007 either — no id was supplied, so there
+ * is no row being probed for and nothing for an honest status to leak.
+ */
+export function getChartId(req: Request): string {
+  const { patientId } = getAuth(req)
+
+  if (!patientId) {
+    throw new ApiError('FORBIDDEN', 'This account has no patient chart.')
+  }
+
+  return patientId
+}

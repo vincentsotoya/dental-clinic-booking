@@ -102,19 +102,25 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
       `server/src/routes/appointments.ts` — `POST /api/appointments` behind `requireAuth`
 - [x] `calendar.dateOf(instant)` — the inverse of `clinicInstant`, which booking needs and
       `today()` now delegates to
-- [x] 🎯 `npm run db:booking` — 21 checks over real cookies and real rows, including the race:
-      a rival insert held in an open transaction is invisible to the re-check, so the route
-      decides the slot is free, blocks on the GiST index, and gets a real `23P01` on commit.
-      Falsified both ways — with `isSlotTaken` stubbed out the loser turns 500, and with the
-      re-check removed Postgres accepts a 3am booking with a 201
+- [x] `GET /api/appointments/me` — `?when=upcoming|past|all`; `getChartId` in
+      `auth-context.ts` is the seam both appointment routes share; `bookedAppointment` renamed
+      `patientAppointment` now that two endpoints send it
+- [x] 🎯 `npm run db:booking` — 34 checks over real cookies and real rows. The race is pinned,
+      not hoped for: a rival insert held in an open transaction is invisible to the re-check, so
+      the route decides the slot is free, blocks on the GiST index, and takes a real `23P01` on
+      commit. The two patients' lists are disjoint *and* each equals its own chart's row count,
+      with a planted backdated row proving `past` and `all`
+- [x] 🎯 Every claim falsified: stub out `isSlotTaken` and the loser turns 500; remove the
+      re-check and Postgres accepts a 3am booking with a 201; drop `patientId` from the WHERE
+      clause and each patient reads all 12 rows
 
 ## Current Task
 
-- [ ] `GET /api/appointments/me`
+- [ ] `requireOwnership` — the fetch-then-compare exception, with cancel as its first caller
 
 ## Next
 
-- [ ] `requireOwnership`, then cancel and reschedule — the routes that dictate its signature
+- [ ] `PATCH /api/appointments/:id/cancel`, then reschedule in one transaction
 
 ## Active Blockers
 
@@ -122,6 +128,17 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
 
 ## Recent Decisions
 
+- `getChartId(req)` is where "the caller's own chart, or 403" lives, because both appointment
+  routes need it and a route that forgot it would silently act on `undefined`. An admin gets 403
+  rather than an empty list: "you have no appointments" and "this account cannot have any" are
+  different claims and only one is true
+- The list sends cancelled and completed rows and lets the client filter. A patient who cancelled
+  yesterday and sees no trace of it concludes the clinic lost it, not that the cancellation worked
+- `?when` defaults to `upcoming` — the slice a "my appointments" screen opens on, and the only
+  one bounded by reality. `past` grows without limit, so it must be asked for by name; paginating
+  it is Phase 6's problem, on the screen that will actually scroll
+- `db:authz`'s `/probe` list route is now redundant and stays anyway: `/probe/appointments/:id`
+  still stands in for cancel and reschedule, and splitting the script would prove less
 - The re-check and the exclusion constraints enforce different things. The constraints know one
   rule — no two CONFIRMED rows overlap for a provider or a room — and nothing about hours, lunch,
   closures, lead time or provider type. Proven, not asserted: delete the re-check and `db:booking`
