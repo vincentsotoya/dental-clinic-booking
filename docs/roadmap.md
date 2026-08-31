@@ -57,7 +57,7 @@ Goal: given a service and a date range, compute which slots are genuinely bookab
 - [x] **(C)** Zod request/response schemas in `shared/`, split one module per endpoint
 - [x] **(C)** `GET /api/availability` + verify with curl
 
-## Phase 3 — Auth
+## Phase 3 — Auth ✅
 
 Server only. The session hook and protected routes moved to Phase 5, where the router and the
 typed API client they depend on are built — see ADR-0006 and ADR-0007 for what was settled.
@@ -71,7 +71,7 @@ typed API client they depend on are built — see ADR-0006 and ADR-0007 for what
 - [x] **(C)** `/api/auth/*` mounted, `attachSession` / `requireAuth` / `requireRole`, and
       `GET /api/me` — see ADR-0008. `requireOwnership` moved to Phase 4, where its first
       callers are
-- [ ] **(C)** Authz tests — the stubbed permission matrix, plus 🎯 `npm run db:authz` proving
+- [x] **(C)** Authz tests — the stubbed permission matrix, plus 🎯 `npm run db:authz` proving
       patient A cannot touch patient B's anything over real cookies
 
 ## Phase 4 — Booking API

@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:availability": "tsx scripts/check-availability.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:authz": "tsx scripts/check-authz.ts"
   },
   "dependencies": {
     "@dental/shared": "*",

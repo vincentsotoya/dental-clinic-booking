@@ -8,8 +8,8 @@ questions. **(S)** marks a task driven by a skill session.
 
 ## Current Phase
 
-Phase 3 — Auth. Goal: Better Auth against Prisma/Postgres, a `role` on User, and middleware
-that makes "patient A cannot touch patient B's anything" a tested property rather than a hope.
+Phase 4 — Booking API. Goal: writing an appointment is a race the database wins — an optimistic
+insert, `23P01` caught and mapped to 409, and two simultaneous bookings where exactly one lands.
 
 ## Completed
 
@@ -90,13 +90,19 @@ that makes "patient A cannot touch patient B's anything" a tested property rathe
       insurance, the admin comes back `patient: null`, a forged cookie reads anonymous rather
       than 500, and a replayed token after sign-out is dead
 
+- [x] 🎯 `npm run db:authz` — 29 checks over real cookies and real rows: the two patients'
+      appointment lists are disjoint and sum to the admin's, Marsh gets 404 on a Nakamura row
+      that provably exists, and that 404 is byte-identical to the one for an id that never
+      existed. Both tamper cases edit inside the token, not its base64 padding
+- [x] **Phase 3 complete** — 162 tests green
+
 ## Current Task
 
-- [ ] Authz tests + 🎯 `npm run db:authz` over real cookies
+- [ ] Phase 4 — booking API, opening with `requireOwnership` and its first callers
 
 ## Next
 
-- [ ] Phase 4 — booking API, opening with `requireOwnership` and its first callers
+- [ ] `POST /api/appointments` — optimistic insert, catch `23P01`, 409
 
 ## Active Blockers
 
@@ -141,6 +147,9 @@ that makes "patient A cannot touch patient B's anything" a tested property rathe
   `/api/me` can answer a stranger while every other route refuses them. `req.auth` is
   three-valued — `undefined` means no middleware ran and is a 500, not a 401 — see ADR-0008.
   That caught a real bug: `createMeRouter` took `attachSession` and forgot to mount it
+- `db:authz` builds its own app: real middleware, real auth, real Postgres, but `/probe`
+  routes standing in for Phase 4's. The proof needs a route addressed by an id, and its checks
+  are written to fail — deleting the WHERE clause turns 6 of them red
 - `requireOwnership` deferred to Phase 4. Its signature is dictated by cancel and reschedule,
   and building it now would be guessing at routes that do not exist
 - `/api/me` reads the chart rather than echoing the login. The two records diverge the first
