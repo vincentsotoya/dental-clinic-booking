@@ -58,7 +58,8 @@ dental-clinic-booking/
 │   │           └── migration.sql
 │   ├── scripts/
 │   │   ├── check-availability.ts
-│   │   └── check-authz.ts
+│   │   ├── check-authz.ts
+│   │   └── check-booking.ts
 │   └── src/
 │       ├── app.ts
 │       ├── auth.ts
@@ -72,6 +73,8 @@ dental-clinic-booking/
 │       │   ├── auth.ts
 │       │   └── auth.test.ts
 │       ├── routes/
+│       │   ├── appointments.ts
+│       │   ├── appointments.test.ts
 │       │   ├── availability.ts
 │       │   ├── availability.test.ts
 │       │   ├── errors.ts
@@ -84,6 +87,8 @@ dental-clinic-booking/
 │       │   ├── availability-query.ts
 │       │   ├── availability-query.test.ts
 │       │   ├── availability-response.ts
+│       │   ├── booking.ts
+│       │   ├── booking.test.ts
 │       │   ├── clinic-time.ts
 │       │   ├── clinic-time.test.ts
 │       │   ├── intervals.ts
@@ -96,6 +101,8 @@ dental-clinic-booking/
     ├── tsconfig.json
     └── src/
         ├── index.ts
+        ├── appointments.ts
+        ├── appointments.test.ts
         ├── availability.ts
         ├── availability.test.ts
         ├── errors.ts

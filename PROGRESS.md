@@ -96,13 +96,25 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
       existed. Both tamper cases edit inside the token, not its base64 padding
 - [x] **Phase 3 complete** — 162 tests green
 
+- [x] `shared/src/appointments.ts` — the booking contract; `SLOT_UNAVAILABLE` and `SLOT_TAKEN`
+      added to `apiErrorCode`, both 409
+- [x] `server/src/services/booking.ts` — re-run the engine, insert, catch `23P01`;
+      `server/src/routes/appointments.ts` — `POST /api/appointments` behind `requireAuth`
+- [x] `calendar.dateOf(instant)` — the inverse of `clinicInstant`, which booking needs and
+      `today()` now delegates to
+- [x] 🎯 `npm run db:booking` — 21 checks over real cookies and real rows, including the race:
+      a rival insert held in an open transaction is invisible to the re-check, so the route
+      decides the slot is free, blocks on the GiST index, and gets a real `23P01` on commit.
+      Falsified both ways — with `isSlotTaken` stubbed out the loser turns 500, and with the
+      re-check removed Postgres accepts a 3am booking with a 201
+
 ## Current Task
 
-- [ ] Phase 4 — booking API, opening with `requireOwnership` and its first callers
+- [ ] `GET /api/appointments/me`
 
 ## Next
 
-- [ ] `POST /api/appointments` — optimistic insert, catch `23P01`, 409
+- [ ] `requireOwnership`, then cancel and reschedule — the routes that dictate its signature
 
 ## Active Blockers
 
@@ -110,6 +122,38 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
 
 ## Recent Decisions
 
+- The re-check and the exclusion constraints enforce different things. The constraints know one
+  rule — no two CONFIRMED rows overlap for a provider or a room — and nothing about hours, lunch,
+  closures, lead time or provider type. Proven, not asserted: delete the re-check and `db:booking`
+  books 3am
+- Optimistic insert rather than a lock, because there is no row to lock — the conflict is with an
+  appointment that does not exist yet. SERIALIZABLE would add a retry loop to every booking and an
+  advisory lock would be load-bearing in every future write. The constraint's index entry already
+  is the predicate lock
+- Prisma has no code for an exclusion violation: it surfaces as `P2039`, a generic driver-adapter
+  passthrough, with the real `23P01` at `meta.driverAdapterError.cause.code`. Matched on the
+  SQLSTATE — matching `P2039` would turn every driver failure into a cheerful 409.
+  `booking.test.ts` pins the recorded shape so a Prisma upgrade that moves it fails loudly
+- The body carries a slug, a provider and a start, and nothing else. `endsAt` is derived from the
+  service: a body that could name its own would book a ten-minute crown, and no constraint would
+  object — they police overlap, not honesty about duration
+- No `operatoryId` in the body either, though availability sends one. The room is not the
+  patient's choice, and re-picking it means a patient whose offered room was taken still gets
+  their time rather than a pointless 409
+- One `SLOT_UNAVAILABLE` for every way a slot can be absent. The engine reports what is bookable,
+  not why something is not; deriving a reason here would re-do its work and get it subtly wrong
+- Both booking refusals are 409, not 400: the request was well formed and was true when the client
+  was told it, and the fix is to re-read the clinic's state
+- `bookAppointmentErrorCode` omits `NOT_FOUND` — nothing here is addressed by a caller-supplied
+  id, so there is no stranger's row to hide. Cancel and reschedule will list it
+- An account with no chart — an admin, or ADR-0007's gap — gets 403, not 404. No id was supplied,
+  so there is nothing being probed for. An admin booking for a patient is a Phase 7 route
+- The booking transaction is for one consistent snapshot of the engine's five reads, not for the
+  race. It does not prevent the race and is not meant to; it is also the seam
+  `AppointmentStatusHistory` slots into
+- The concurrency proof is deterministic, not a `Promise.all` and a hope: a rival booking held in
+  an open transaction is invisible at READ COMMITTED, so the loser fails the *constraint* rather
+  than the re-check, which is the path that needed proving
 - The seed signs up through `auth.api.signUpEmail`, never an INSERT: a hand-written `user` row has
   no `account` row, so it has no password hash and cannot log in
 - Signup charts a second, empty patient (ADR-0007 — it never adopts), so the seed deletes that one

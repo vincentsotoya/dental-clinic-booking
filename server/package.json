@@ -13,7 +13,8 @@
     "db:seed": "prisma db seed",
     "db:availability": "tsx scripts/check-availability.ts",
     "db:studio": "prisma studio",
-    "db:authz": "tsx scripts/check-authz.ts"
+    "db:authz": "tsx scripts/check-authz.ts",
+    "db:booking": "tsx scripts/check-booking.ts"
   },
   "dependencies": {
     "@dental/shared": "*",

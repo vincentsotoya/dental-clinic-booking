@@ -76,15 +76,17 @@ typed API client they depend on are built — see ADR-0006 and ADR-0007 for what
 
 ## Phase 4 — Booking API
 
-- [ ] **(C)** Explain optimistic insert + catching `23P01`
+Opened with `POST` rather than `requireOwnership`: nothing here is addressed by an id, so the
+middleware had no first caller. Cancel and reschedule dictate its signature.
+
+- [x] **(C)** `POST /api/appointments` — validate → re-check → insert → catch `23P01` → 409
+- [x] **(C)** 🎯 Concurrency: the losing insert held on the index, released into a real `23P01`
+- [ ] **(C)** `GET /api/appointments/me`
 - [ ] **(C)** `requireOwnership` — the fetch-then-compare exception (ADR-0007), built here
       because cancel and reschedule are the routes that need it
-- [ ] **(V)** `POST /api/appointments` — validate → re-check → insert → catch → 409
-- [ ] **(V)** `GET /api/appointments/me`
-- [ ] **(V)** `PATCH /api/appointments/:id/cancel`
-- [ ] **(V)** `PATCH /api/appointments/:id/reschedule` — one transaction
-- [ ] **(V)** 🎯 Concurrency test: two simultaneous bookings, exactly one wins
-- [ ] **(V)** `AppointmentStatusHistory` written on every status change
+- [ ] **(C)** `PATCH /api/appointments/:id/cancel`
+- [ ] **(C)** `PATCH /api/appointments/:id/reschedule` — one transaction
+- [ ] **(C)** `AppointmentStatusHistory` written on every status change
 
 ## Phase 5 — Patient frontend ⭐ first shippable portfolio piece
 
