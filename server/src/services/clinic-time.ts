@@ -40,6 +40,7 @@ export type Weekday = (typeof WEEKDAYS)[number]
 export type ClinicCalendar = {
   readonly timeZone: string
   clinicInstant(date: ClinicDate, minuteOfDay: number): Date
+  dateOf(instant: Date): ClinicDate
   today(): ClinicDate
   addDays(date: ClinicDate, days: number): ClinicDate
   weekdayOf(date: ClinicDate): Weekday
@@ -118,6 +119,21 @@ export function createClinicCalendar(timeZone: string): ClinicCalendar {
     return wallClockAsIfUtc - instant.getTime()
   }
 
+  /**
+   * The civil date an instant falls on in the clinic's calendar.
+   *
+   * The inverse of `clinicInstant`, and the direction booking needs: a request
+   * carries an instant, and the day it lands on decides whose hours apply.
+   */
+  function dateOf(instant: Date): ClinicDate {
+    const parts = formatter.formatToParts(instant)
+    return {
+      year: part(parts, 'year', timeZone),
+      month: part(parts, 'month', timeZone),
+      day: part(parts, 'day', timeZone),
+    }
+  }
+
   return {
     timeZone,
 
@@ -138,14 +154,11 @@ export function createClinicCalendar(timeZone: string): ClinicCalendar {
       return new Date(wallClock - zoneOffsetMs(new Date(firstGuess)))
     },
 
+    dateOf,
+
     /** Today's date on the clinic's calendar — not the server's. */
     today() {
-      const parts = formatter.formatToParts(new Date())
-      return {
-        year: part(parts, 'year', timeZone),
-        month: part(parts, 'month', timeZone),
-        day: part(parts, 'day', timeZone),
-      }
+      return dateOf(new Date())
     },
 
     addDays,

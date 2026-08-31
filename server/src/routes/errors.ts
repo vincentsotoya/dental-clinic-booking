@@ -17,6 +17,10 @@ import { ApiError } from '../errors'
  * and a malformed one are all the caller's fault, but only one of them is
  * fixed by asking for less.
  *
+ * Both booking refusals are 409 rather than 400: the request was well formed
+ * and was true when the client was told it, and the fix is to re-read the
+ * clinic's state — which is what Conflict means and what 400 does not.
+ *
  * `FORBIDDEN` is a 403 and that does not contradict ADR-0007. That ADR is
  * about *data addressed by id* — there, a 403 distinguishes an appointment
  * that exists from one that does not, so walking ids counts the clinic's
@@ -32,6 +36,8 @@ const STATUS: Record<ApiErrorCode, number> = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   SERVICE_NOT_FOUND: 404,
+  SLOT_UNAVAILABLE: 409,
+  SLOT_TAKEN: 409,
   INTERNAL: 500,
 }
 

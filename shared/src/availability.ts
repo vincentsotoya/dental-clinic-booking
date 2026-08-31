@@ -61,6 +61,9 @@ export const providerType = z.enum(['DENTIST', 'HYGIENIST'])
 /** Matches the `slug` column: lowercase words joined by single hyphens. */
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
+/** Exported because booking addresses a service the same way this endpoint does. */
+export const serviceSlug = z.string().regex(SLUG, 'Not a service slug.')
+
 /**
  * `?service=routine-exam&from=2026-08-31&to=2026-09-05`
  *
@@ -76,7 +79,7 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
  */
 export const availabilityQuery = z
   .object({
-    service: z.string().regex(SLUG, 'Not a service slug.'),
+    service: serviceSlug,
     from: isoDateToClinicDate,
     to: isoDateToClinicDate.optional(),
   })
@@ -119,10 +122,10 @@ export const availabilityService = z.object({
  * One bookable start time.
  *
  * All three timestamps are UTC ISO strings. `endsAt` and `blockedUntil` are
- * derived from `startsAt` and the service, and are sent anyway: the client
- * shows `startsAt`–`endsAt` as the appointment length without re-deriving it,
- * and Phase 4 posts back the exact range it was offered rather than
- * recomputing one that might differ.
+ * derived from `startsAt` and the service, and are sent so the client can show
+ * the appointment's length without re-deriving it. They are display values, not
+ * a round trip: booking posts `startsAt` alone and the server derives the rest,
+ * because a client that can name its own `endsAt` can book a ten-minute crown.
  *
  * No operatory *name*. The room is never something the patient chooses
  * (CONTEXT.md), so only the id travels — enough for Phase 4 to write the row,

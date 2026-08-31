@@ -63,3 +63,16 @@ export function stubPatientDb(chart: typeof PATIENT_CHART | null): Pick<PrismaCl
     patient: { findUnique: async () => chart },
   } as unknown as Pick<PrismaClient, 'patient'>
 }
+
+/**
+ * An interactive transaction that runs the callback against the same stub.
+ *
+ * No isolation and no rollback — a stub has no snapshot to take. It exists so
+ * the code under test takes its real path; what a transaction actually buys is
+ * proven against Postgres by the `npm run db:*` scripts.
+ */
+export function stubTransaction<T extends object>(db: T): Pick<PrismaClient, '$transaction'> {
+  return {
+    $transaction: async (run: (tx: T) => unknown) => run(db),
+  } as unknown as Pick<PrismaClient, '$transaction'>
+}

@@ -40,6 +40,12 @@ export const apiErrorCode = z.enum([
   'SERVICE_NOT_FOUND',
   'RANGE_INVERTED',
   'RANGE_TOO_LONG',
+
+  // Booking. Two codes because the client does two different things with them.
+  /** The time is not on offer at all — closed, too soon, no such provider. Refetch. */
+  'SLOT_UNAVAILABLE',
+  /** It was on offer and somebody else took it first. Refetch and say so. */
+  'SLOT_TAKEN',
 ])
 
 export type ApiErrorCode = z.infer<typeof apiErrorCode>
