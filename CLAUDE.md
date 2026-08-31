@@ -30,6 +30,13 @@ and trade-offs rather than making them silently.
 Comment only what isn't obvious from the code: domain rules, constraints, non-obvious reasoning,
 trade-offs taken. Nothing that narrates what a line plainly does.
 
+Keep them short and precise. One or two lines, three at the very most; a file header may reach
+four. State the conclusion, not the argument that reached it — if the reasoning needs a paragraph
+it belongs in an ADR or `docs/`, and the comment cites it (`see ADR-0007`). Say a thing once: a
+point already made in a file header, a sibling comment or a test name doesn't get restated at the
+call site. Reserve `/** */` for exported types and functions, where it's the API description; `//`
+everywhere else.
+
 ## Verification
 
 `npm run typecheck` and `npm test` from the repo root before calling implementation work
