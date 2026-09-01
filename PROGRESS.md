@@ -174,14 +174,33 @@ event log inside the transaction that made it.
 - [x] Impeccable installed from its own marketplace; `/impeccable init` → `PRODUCT.md` at the
       repo root, inherited by `client`. Practice named **Quillon Dental**, fictional and checked
       against real US practices before adoption
+- [x] `client/src/api/` — `request` parses every response through the shared schema, endpoint
+      functions carry each route's own error union, query keys, hooks, and a QueryClient whose
+      retry and staleness defaults are argued rather than inherited
+- [x] 🎯 `npm run check:api --workspace=@dental/client` — 27 checks driving the production client
+      against the running API: typed errors, both 409s, a move that keeps its id, an idempotent
+      second cancel, and a dead connection becoming a `NetworkError`
+- [x] 🎯 Falsified: cast instead of parse and the off-contract check stops throwing; widen
+      `isRetryable` past 5xx and a 409 becomes retryable
+- [x] React Router v8; `client/src/auth/` — `useSession` over `/api/me`, `RequireAuth` as a
+      nested route, Better Auth's client for sign-in/out actions only. Stand-in `/sign-in` and
+      `/appointments` screens, labelled as such, so the loop is exercisable before the designed
+      ones exist
+- [x] Client test setup (vitest + jsdom + Testing Library) — 7 tests driving the guard through a
+      real memory router over a seeded cache, not a stubbed hook
+- [x] 🎯 The whole loop over both dev servers: Vite's proxy forwards Better Auth, the cookie comes
+      back, `/api/me` answers `user: null` anonymously and resolves Marsh's chart with the cookie,
+      and `/appointments` serves the SPA
+- [x] 🎯 Falsified: delete the `loading` branch and the guard redirects a patient whose session has
+      not resolved yet
 
 ## Current Task
 
-- [ ] Typed API client + TanStack Query over the four appointment endpoints
+- [ ] **(S)** `/pick-ui-library` — the last decision before pages get written
 
 ## Next
 
-- [ ] Session hook over `GET /api/me` + protected routes, then the marketing pages
+- [ ] **(V)** Home, Services and Dentists, then the booking flow
 
 ## Active Blockers
 
@@ -189,6 +208,40 @@ event log inside the transaction that made it.
 
 ## Recent Decisions
 
+- **A session has three states, not two.** `loading` is distinct from `anonymous` for the same
+  reason `req.auth` is three-valued on the server (ADR-0008): collapsing them makes the guard
+  bounce a signed-in patient to sign-in and back on every cold load. Proven by deleting the branch
+- **`/api/me` is the only source of session truth**, not Better Auth's `useSession`. Better Auth
+  owns its tables and will not join `patients` (ADR-0006), so its session has no chart id — and
+  the chart id is what every appointment route needs. Its client is used for sign-in, sign-up and
+  sign-out actions only, each followed by invalidating `me`
+- Signing out **removes** the appointment queries rather than invalidating them. Invalidating
+  leaves the previous patient's rows in the cache while they refetch, and the next person at a
+  shared machine would see them
+- `RequireAuth` guards the *interface*, never the data. Every route under it is already refused by
+  the server for anyone who should not have it; removing the guard would leak nothing, it would
+  only be rude
+- React Router v8 over TanStack Router. TanStack would have let the booking flow's URL state reuse
+  `availabilityQuery` from `shared`, which fits this project's thesis well — but the pages and the
+  booking flow are **(V)**, and a router Vincent writes fluently outweighs a type win in the
+  address bar
+- Deep links work in dev because Vite falls back to `index.html`. A static host needs the same
+  rewrite rule in Phase 11, or `/appointments` 404s on a refresh
+- Responses are **parsed, not cast**. `as MeResponse` is a promise the compiler cannot keep, and a
+  server that drifted would surface as a blank field three components from the cause. Proven
+  load-bearing: with the parse removed, a real body measured against the wrong contract sails
+  through
+- Errors reach a component as `ApiRequestError` with the code narrowed to that endpoint's
+  `.extract()` subset, so a booking handler sees `SLOT_TAKEN` and never `RANGE_TOO_LONG`. A body
+  that is not even the error envelope becomes `INTERNAL` rather than leaking a proxy's HTML
+- **Retries only for what a retry can fix**: 5xx and a dead connection. TanStack retries three
+  times by default, which would ask about a 409 twice more while the patient waits, and resend a
+  dead cookie on a 401
+- **Availability has no stale window.** The server marks it `no-store` because a cached slot list
+  offers times that are gone, and a slot was never a reservation. Mutations invalidate availability
+  on failure too: a 409 is itself evidence the caller's list is stale
+- The client has **no unit tests yet** — `check:api` covers the real paths, but the pure branching
+  in `isRetryable` and `toApiError` deserves a vitest setup once components need one anyway
 - The practice is **Quillon Dental**, fictional. Three candidates were searched against real US
   practices first and two were rejected for colliding (`Fernwood Dental` exists in Austin;
   `Alder` collides three ways). Recorded in `PRODUCT.md` as fictional so no later session treats

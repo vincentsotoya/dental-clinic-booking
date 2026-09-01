@@ -61,6 +61,11 @@ the other, and nothing in the type system would object.
 - **One accent.** No second colour arrives for a success state or a badge. Status is carried by
   words and icon, not by a green that appears nowhere else on the site.
 - **One radius scale:** `card` 12px, `input` 8px, `pill` for buttons. Nothing else.
+
+  Use the generated utilities — `rounded-card`, `rounded-input`, `rounded-pill` — not an arbitrary
+  value. Tailwind v4 builds them from the `--radius-*` tokens, and the v3 spelling
+  `rounded-[--radius-card]` silently compiles to `border-radius: --radius-card`, which is invalid
+  CSS: the corner renders square and nothing warns. The same applies to every token namespace here.
 - **One theme per page.** The whole page is light or the whole page is dark, following
   `prefers-color-scheme`. No section inverts.
 

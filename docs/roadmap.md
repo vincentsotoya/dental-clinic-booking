@@ -101,9 +101,10 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
 - [x] **(S)** `/impeccable init` → `PRODUCT.md`. Moved ahead of the components: it captures product
       truth, and capturing it after nine components exist means retrofitting them
 - [ ] **(S)** `/pick-ui-library`
-- [ ] **(C)** Typed API client + TanStack Query
-- [ ] **(C)** Session hook over `GET /api/me` + protected routes — moved from Phase 3, which had
-      no router to protect
+- [x] **(C)** Typed API client + TanStack Query — responses parsed through the shared schemas,
+      not cast; errors arrive as a typed `ApiRequestError` narrowed per endpoint
+- [x] **(C)** Session hook over `GET /api/me` + protected routes — React Router v8, and a session
+      with three states rather than two: not-known-yet is not signed-out
 - [ ] **(V)** Home, Services, Dentists pages
 - [ ] **(V)** Booking flow: ServicePicker → DentistPicker → Calendar → SlotGrid → Confirm
 - [ ] **(V)** Handle `SLOT_TAKEN` 409 gracefully — refetch and explain
