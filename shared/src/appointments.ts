@@ -174,3 +174,47 @@ export const myAppointmentsError = errorBody(myAppointmentsErrorCode)
 
 export type MyAppointmentsErrorCode = z.infer<typeof myAppointmentsErrorCode>
 export type MyAppointmentsError = z.infer<typeof myAppointmentsError>
+
+// ---------------------------------------------------------------------------
+// PATCH /api/appointments/:id/cancel
+// ---------------------------------------------------------------------------
+
+/**
+ * No request schema, because there is no body.
+ *
+ * The id is in the path and the actor is in the cookie, so a body could only
+ * carry a reason — and there is no column to put one in. Accepting a field the
+ * server drops on the floor is worse than not accepting it.
+ *
+ * A named sub-resource rather than `PATCH` with `{ status: 'CANCELLED' }`: the
+ * status field is not the patient's to set. `COMPLETED` and `NO_SHOW` are the
+ * clinic's judgements about what happened, and a route that takes a status
+ * would have to spend its first ten lines refusing two of the four values.
+ */
+export const cancelAppointmentResponse = z.object({ appointment: patientAppointment })
+
+export type CancelAppointmentResponse = z.infer<typeof cancelAppointmentResponse>
+
+/**
+ * `NOT_FOUND` appears here for the first time in this file: the caller supplies
+ * an id, so there is finally a stranger's row to hide behind one (ADR-0007).
+ *
+ * `NOT_CANCELLABLE` is one code for every refusal about the appointment's own
+ * state — already over, already completed, already a no-show — following the
+ * same reasoning as `SLOT_UNAVAILABLE`. Which one it was belongs in the message
+ * a human reads, not in a code the client would switch on to say the same
+ * sentence three ways.
+ */
+export const cancelAppointmentErrorCode = apiErrorCode.extract([
+  'INVALID_REQUEST',
+  'INTERNAL',
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'NOT_CANCELLABLE',
+])
+
+export const cancelAppointmentError = errorBody(cancelAppointmentErrorCode)
+
+export type CancelAppointmentErrorCode = z.infer<typeof cancelAppointmentErrorCode>
+export type CancelAppointmentError = z.infer<typeof cancelAppointmentError>

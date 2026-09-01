@@ -1,18 +1,27 @@
 import {
   bookAppointmentRequest,
   bookAppointmentResponse,
+  cancelAppointmentResponse,
   myAppointmentsQuery,
   myAppointmentsResponse,
   type AppointmentWindow,
 } from '@dental/shared'
-import { Router } from 'express'
+import { Router, type RequestHandler } from 'express'
 import type { AuthMiddleware } from '../middleware/auth'
 import { getChartId } from '../middleware/auth-context'
+import { getOwnedAppointmentId } from '../middleware/ownership'
+import {
+  PATIENT_APPOINTMENT_SELECT,
+  toPatientAppointment,
+} from '../services/appointment-view'
 import { bookAppointment, type BookingDb } from '../services/booking'
+import { cancelAppointment, type CancellationDb } from '../services/cancellation'
 
 export type AppointmentsDeps = {
-  db: BookingDb
+  db: BookingDb & CancellationDb
   requireAuth: AuthMiddleware['requireAuth']
+  /** Only the id-addressed routes take it; the other two are scoped by their own WHERE clause. */
+  requireOwnership: RequestHandler
   timeZone: string
   /** A function, not a Date: the route is long-lived and must read the clock per request. */
   now?: () => Date
@@ -32,17 +41,6 @@ function scope(patientId: string, when: AppointmentWindow, now: Date) {
 const bound = (when: AppointmentWindow, now: Date) =>
   when === 'past' ? { lt: now } : { gte: now }
 
-/** The columns a patient may see. `blockedUntil` and the room are not among them. */
-const VISIBLE = {
-  id: true,
-  status: true,
-  startsAt: true,
-  endsAt: true,
-  notes: true,
-  service: { select: { id: true, slug: true, name: true, durationMins: true } },
-  provider: { select: { id: true, type: true, firstName: true, lastName: true, title: true } },
-} as const
-
 export function createAppointmentsRouter(deps: AppointmentsDeps): Router {
   const { db, timeZone, now = () => new Date() } = deps
   const router = Router()
@@ -56,16 +54,12 @@ export function createAppointmentsRouter(deps: AppointmentsDeps): Router {
     // is not filtered out of the answer — it is never in it (ADR-0007).
     const rows = await db.appointment.findMany({
       ...scope(getChartId(req), when, now()),
-      select: VISIBLE,
+      select: PATIENT_APPOINTMENT_SELECT,
     })
 
     const body = myAppointmentsResponse.parse({
       when,
-      appointments: rows.map((row) => ({
-        ...row,
-        startsAt: row.startsAt.toISOString(),
-        endsAt: row.endsAt.toISOString(),
-      })),
+      appointments: rows.map(toPatientAppointment),
     })
 
     // Somebody else's browser on a shared machine, and a cancellation that
@@ -89,16 +83,31 @@ export function createAppointmentsRouter(deps: AppointmentsDeps): Router {
 
     // Parsed on the way out, as in every route here.
     const payload = bookAppointmentResponse.parse({
-      appointment: {
-        ...appointment,
-        startsAt: appointment.startsAt.toISOString(),
-        endsAt: appointment.endsAt.toISOString(),
-      },
+      appointment: toPatientAppointment(appointment),
     })
 
     // 201 with the row, not 204: the client needs the id to cancel it and the
     // resolved times to show a confirmation.
     res.status(201).json(payload)
+  })
+
+  // The guard decides whose row this is; the handler never sees a chart id and
+  // never compares one. `getOwnedAppointmentId` is the only way in — reading
+  // `req.params.id` here would work until the day the guard is left off.
+  router.patch('/appointments/:id/cancel', deps.requireOwnership, async (req, res) => {
+    const appointment = await cancelAppointment(db, {
+      appointmentId: getOwnedAppointmentId(req),
+      now: now(),
+    })
+
+    const body = cancelAppointmentResponse.parse({
+      appointment: toPatientAppointment(appointment),
+    })
+
+    // 200 with the row, not 204: the client re-renders the appointment as
+    // cancelled rather than guessing what it now looks like.
+    res.set('Cache-Control', 'no-store')
+    res.json(body)
   })
 
   return router

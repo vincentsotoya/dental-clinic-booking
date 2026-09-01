@@ -7,17 +7,22 @@
 import express from 'express'
 import { toNodeHandler } from 'better-auth/node'
 import { type AuthDeps, createAuthMiddleware } from './middleware/auth'
+import { createRequireOwnership } from './middleware/ownership'
 import { type AppointmentsDeps, createAppointmentsRouter } from './routes/appointments'
 import { type AvailabilityDeps, createAvailabilityRouter } from './routes/availability'
 import { errorHandler } from './routes/errors'
 import { createHealthRouter, type HealthDeps } from './routes/health'
 import { createMeRouter } from './routes/me'
 
-export type AppDeps = HealthDeps & AvailabilityDeps & AuthDeps & Omit<AppointmentsDeps, 'requireAuth'>
+export type AppDeps = HealthDeps &
+  AvailabilityDeps &
+  AuthDeps &
+  Omit<AppointmentsDeps, 'requireAuth' | 'requireOwnership'>
 
 export function createApp(deps: AppDeps): express.Express {
   const app = express()
   const { attachSession, requireAuth } = createAuthMiddleware(deps)
+  const requireOwnership = createRequireOwnership({ db: deps.db, requireAuth })
 
   // Above express.json(), and that ordering is load-bearing: a body parser consumes
   // the stream, and Better Auth would then read an empty one. `*splat` rather than
@@ -31,7 +36,7 @@ export function createApp(deps: AppDeps): express.Express {
   app.use('/api', createHealthRouter(deps))
   app.use('/api', createAvailabilityRouter(deps))
   app.use('/api', createMeRouter({ ...deps, attachSession }))
-  app.use('/api', createAppointmentsRouter({ ...deps, requireAuth }))
+  app.use('/api', createAppointmentsRouter({ ...deps, requireAuth, requireOwnership }))
 
   // Last, and after the routes: Express picks error middleware by its four
   // arguments and only consults what was registered after the thrower.

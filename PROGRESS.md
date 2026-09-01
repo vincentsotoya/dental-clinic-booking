@@ -122,14 +122,28 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
       claim falsified: drop the chart id from the WHERE clause or widen the admin branch and
       Marsh reads Nakamura's row with a 200; drop the UUID parse and a malformed id 500s
 
+- [x] `shared/src/appointments.ts` — the cancel contract; `NOT_CANCELLABLE` added to
+      `apiErrorCode` as a 409. `server/src/services/appointment-view.ts` now holds the one
+      patient projection all three appointment routes share
+- [x] `server/src/services/cancellation.ts` and `PATCH /api/appointments/:id/cancel`, mounted
+      behind `requireOwnership` — its first real caller
+- [x] 🎯 `npm run db:cancel` — 22 checks over real cookies and real rows. Cancelling frees the
+      slot for real: the freed time books again with a 201, while the row survives as CANCELLED.
+      The race is pinned, not hoped for — the front desk's COMPLETED is held in an open
+      transaction, the cancellation blocks on the row lock, and on commit its WHERE clause
+      matches nothing
+- [x] 🎯 Every claim falsified: drop `status` from the UPDATE's WHERE clause and a patient's
+      cancellation overwrites the clinic's COMPLETED with a 200; drop the legality check and a
+      visit that already started cancels; mount the route on `requireAuth` and Marsh cancels
+      Nakamura's
+
 ## Current Task
 
-- [ ] `PATCH /api/appointments/:id/cancel` — the guard's first real caller
+- [ ] `PATCH /api/appointments/:id/reschedule` — cancel and rebook in one transaction
 
 ## Next
 
-- [ ] `PATCH /api/appointments/:id/reschedule` in one transaction, then
-      `AppointmentStatusHistory` on every status change
+- [ ] `AppointmentStatusHistory` written on every status change
 
 ## Active Blockers
 
@@ -137,6 +151,24 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
 
 ## Recent Decisions
 
+- Cancel is a named sub-resource, not `PATCH { status }`. Status is not the patient's field to
+  set — `COMPLETED` and `NO_SHOW` are the clinic's judgements — and a route that took one would
+  spend its first lines refusing two of the four values
+- Two guards that do not overlap, both proven by deletion: the legality check refuses a visit that
+  already started, which is a fact about the clock no WHERE clause on `status` can express, and
+  the status repeated in the UPDATE's WHERE clause refuses one the front desk closed out a
+  millisecond ago
+- Cancelling an already-cancelled appointment is 200, not 409. A double tap and a retried request
+  both asked for the state the row is already in; calling that a conflict is a lie about what
+  happened
+- No notice window. A clinic would rather hear at 7am that nobody is coming at 9 than have the
+  chair sit empty, and refusing a late cancellation converts a patient into a no-show. Charging
+  for one is Phase 9's problem
+- One `NOT_CANCELLABLE` for every refusal about the row's own state, following `SLOT_UNAVAILABLE`.
+  Which one it was belongs in the message, not in a code the client would switch on to say the
+  same sentence three ways
+- An admin may cancel any appointment — the front desk taking a phone call, and the same ADR-0007
+  branch that lets them read one
 - `requireOwnership` clears an id and never hands over the row, which turned out to leave ADR-0007
   with no exception in it — the ADR is amended to match what was built
 - A hand-thrown `INTERNAL` was reaching the client with its own message, which the error registry

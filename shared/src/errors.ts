@@ -46,6 +46,10 @@ export const apiErrorCode = z.enum([
   'SLOT_UNAVAILABLE',
   /** It was on offer and somebody else took it first. Refetch and say so. */
   'SLOT_TAKEN',
+
+  // Acting on an appointment that is no longer in the state the caller thinks.
+  /** Already over, or the clinic has closed it out. The message says which. */
+  'NOT_CANCELLABLE',
 ])
 
 export type ApiErrorCode = z.infer<typeof apiErrorCode>

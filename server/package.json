@@ -14,7 +14,8 @@
     "db:availability": "tsx scripts/check-availability.ts",
     "db:studio": "prisma studio",
     "db:authz": "tsx scripts/check-authz.ts",
-    "db:booking": "tsx scripts/check-booking.ts"
+    "db:booking": "tsx scripts/check-booking.ts",
+    "db:cancel": "tsx scripts/check-cancel.ts"
   },
   "dependencies": {
     "@dental/shared": "*",

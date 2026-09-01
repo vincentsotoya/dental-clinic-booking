@@ -84,7 +84,8 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
 - [x] **(C)** `GET /api/appointments/me` — `?when=upcoming|past|all`, scoped by a WHERE clause
 - [x] **(C)** `requireOwnership` — built here because cancel and reschedule are the routes that
       need it. A pure guard: it clears an id, never hands over a row
-- [ ] **(C)** `PATCH /api/appointments/:id/cancel`
+- [x] **(C)** `PATCH /api/appointments/:id/cancel` — a status change guarded twice: a legality
+      check for the clock, and the status repeated in the UPDATE's WHERE clause for the race
 - [ ] **(C)** `PATCH /api/appointments/:id/reschedule` — one transaction
 - [ ] **(C)** `AppointmentStatusHistory` written on every status change
 

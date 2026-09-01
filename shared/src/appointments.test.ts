@@ -3,6 +3,8 @@ import {
   bookAppointmentError,
   bookAppointmentRequest,
   bookAppointmentResponse,
+  cancelAppointmentError,
+  cancelAppointmentResponse,
   myAppointmentsError,
   myAppointmentsQuery,
   myAppointmentsResponse,
@@ -148,6 +150,29 @@ describe('myAppointmentsResponse', () => {
   it.each(['CANCELLED', 'COMPLETED', 'NO_SHOW'])('carries a %s row', (status) => {
     const body = { when: 'all', appointments: [{ ...APPOINTMENT, status }] }
     expect(myAppointmentsResponse.safeParse(body).success).toBe(true)
+  })
+})
+
+describe('cancelAppointmentResponse', () => {
+  it('sends back one appointment, cancelled', () => {
+    const body = { appointment: { ...APPOINTMENT, status: 'CANCELLED' } }
+    expect(cancelAppointmentResponse.safeParse(body).success).toBe(true)
+  })
+})
+
+describe('cancelAppointmentErrorCode', () => {
+  // The first contract here addressed by a caller-supplied id, so the first
+  // that can hide a stranger's row behind a 404 (ADR-0007).
+  it.each(['NOT_FOUND', 'NOT_CANCELLABLE', 'FORBIDDEN', 'UNAUTHENTICATED'])(
+    'admits %s',
+    (code) => {
+      expect(cancelAppointmentError.safeParse({ error: { code, message: 'x' } }).success).toBe(true)
+    },
+  )
+
+  // Nothing here is booking a time, so neither refusal about one belongs.
+  it.each(['SLOT_TAKEN', 'SLOT_UNAVAILABLE', 'SERVICE_NOT_FOUND'])('does not admit %s', (code) => {
+    expect(cancelAppointmentError.safeParse({ error: { code, message: 'x' } }).success).toBe(false)
   })
 })
 

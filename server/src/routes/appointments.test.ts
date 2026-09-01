@@ -1,6 +1,8 @@
 import {
   bookAppointmentError,
   bookAppointmentResponse,
+  cancelAppointmentError,
+  cancelAppointmentResponse,
   myAppointmentsError,
   myAppointmentsResponse,
 } from '@dental/shared'
@@ -64,11 +66,32 @@ type StubOptions = {
   chart?: typeof PATIENT_CHART | null
   /** What the list route reads back. The booking path wants this empty. */
   appointments?: unknown[]
+  /**
+   * Rows the id-addressed routes read and write. Mutable on purpose: the
+   * cancel path has to see its own UPDATE.
+   */
+  rows?: StubRow[]
+  /** Runs inside `updateMany`, before it matches — the front desk, committing first. */
+  interfere?: () => void
 }
+
+type StubRow = {
+  id: string
+  patientId: string
+  status: string
+  startsAt: Date
+  [key: string]: unknown
+}
+
+/** Every column named in the WHERE clause has to match, as Postgres would. */
+const matches = (row: StubRow, where: Record<string, unknown> = {}) =>
+  Object.entries(where).every(([column, value]) => row[column] === value)
 
 function stubDb(options: StubOptions = {}) {
   const writes: CreateArgs[] = []
   const reads: FindManyArgs[] = []
+  const updates: unknown[] = []
+  const rows = options.rows ?? []
 
   const db = {
     ...stubPatientDb(options.chart === undefined ? PATIENT_CHART : options.chart),
@@ -92,10 +115,21 @@ function stubDb(options: StubOptions = {}) {
           notes: args.data.notes ?? null,
         }
       },
+      findFirst: async (args: FindManyArgs = {}) =>
+        rows.find((row) => matches(row, args.where)) ?? null,
+      findUnique: async (args: FindManyArgs = {}) =>
+        rows.find((row) => matches(row, args.where)) ?? null,
+      updateMany: async (args: FindManyArgs & { data: Record<string, unknown> }) => {
+        updates.push(args)
+        options.interfere?.()
+        const hit = rows.filter((row) => matches(row, args.where))
+        hit.forEach((row) => Object.assign(row, args.data))
+        return { count: hit.length }
+      },
     },
   }
 
-  return { db: { ...db, ...stubTransaction(db) }, writes, reads }
+  return { db: { ...db, ...stubTransaction(db) }, writes, reads, rows, updates }
 }
 
 function post(user: StubUser | null, body: object, db: ReturnType<typeof stubDb>['db'] = stubDb().db) {
@@ -353,5 +387,153 @@ describe('GET /api/appointments/me', () => {
     expect(res.status).toBe(403)
     expect(res.body.error.code).toBe('FORBIDDEN')
     expect(stub.db.reads).toHaveLength(0)
+  })
+})
+
+const HIS = '5f2b8c00-0000-4000-8000-0000000000b1'
+const NAKAMURA_CHART = '3d604f00-0000-4000-8000-0000000000a2'
+
+/** Hers, confirmed, and a month after `NOW` unless a test says otherwise. */
+function row(overrides: Partial<StubRow> = {}): StubRow {
+  return { ...ROW, patientId: PATIENT_CHART.id, status: 'CONFIRMED', ...overrides }
+}
+
+function cancel(user: StubUser | null, id: string, stub = stubDb({ rows: [row()] })) {
+  const app = createApp({
+    db: stub.db,
+    auth: stubAuth(user),
+    databaseIsReachable: async () => true,
+    timeZone: 'America/New_York',
+    now: () => NOW,
+  } as unknown as Parameters<typeof createApp>[0])
+
+  return { res: request(app).patch(`/api/appointments/${id}/cancel`), stub }
+}
+
+describe('PATCH /api/appointments/:id/cancel', () => {
+  it('cancels the row and answers 200 with the shared contract', async () => {
+    const stub = stubDb({ rows: [row()] })
+    const res = await cancel(PATIENT_USER, ROW.id, stub).res
+
+    expect(res.status).toBe(200)
+    expect(() => cancelAppointmentResponse.parse(res.body)).not.toThrow()
+    expect(res.body.appointment.status).toBe('CANCELLED')
+    expect(stub.rows[0]?.status).toBe('CANCELLED')
+  })
+
+  // The row is the only thing that moves. Cancelling must not quietly free the
+  // slot by deleting it — the appointment stays, visible in the patient's list.
+  it('writes only the status, and only to the row named in the URL', async () => {
+    const stub = stubDb({ rows: [row()] })
+    await cancel(PATIENT_USER, ROW.id, stub).res
+
+    expect(stub.updates).toEqual([
+      { where: { id: ROW.id, status: 'CONFIRMED' }, data: { status: 'CANCELLED' } },
+    ])
+  })
+
+  // A double tap and a retried request both asked for the state the row is
+  // already in, and got it. Reporting a conflict would be a lie.
+  it('is idempotent, and does not write a second time', async () => {
+    const stub = stubDb({ rows: [row()] })
+    const first = await cancel(PATIENT_USER, ROW.id, stub).res
+    const second = await cancel(PATIENT_USER, ROW.id, stub).res
+
+    expect([first.status, second.status]).toEqual([200, 200])
+    expect(second.body.appointment.status).toBe('CANCELLED')
+    expect(stub.updates).toHaveLength(1)
+  })
+
+  it('409s an appointment the clinic has already closed out', async () => {
+    for (const status of ['COMPLETED', 'NO_SHOW']) {
+      const stub = stubDb({ rows: [row({ status })] })
+      const res = await cancel(PATIENT_USER, ROW.id, stub).res
+
+      expect(res.status).toBe(409)
+      expect(res.body.error.code).toBe('NOT_CANCELLABLE')
+      expect(() => cancelAppointmentError.parse(res.body)).not.toThrow()
+      expect(stub.updates).toHaveLength(0)
+    }
+  })
+
+  // Cancelling backwards would rewrite what happened, and would let a patient
+  // erase a no-show in the window before the clinic records one.
+  it('409s an appointment that has already started', async () => {
+    const startsAt = new Date(NOW.getTime() - 60_000)
+    const stub = stubDb({ rows: [row({ startsAt })] })
+    const res = await cancel(PATIENT_USER, ROW.id, stub).res
+
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('NOT_CANCELLABLE')
+    expect(res.body.error.message).toContain('already started')
+  })
+
+  // The race this route is shaped around: the front desk marks it COMPLETED
+  // between the read and the write, so the UPDATE's WHERE clause matches
+  // nothing and the patient's cancellation does not overwrite that judgement.
+  it('loses to a status written between the read and the update', async () => {
+    const rows = [row()]
+    const stub = stubDb({
+      rows,
+      interfere: () => {
+        rows[0]!.status = 'COMPLETED'
+      },
+    })
+    const res = await cancel(PATIENT_USER, ROW.id, stub).res
+
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('NOT_CANCELLABLE')
+    expect(res.body.error.message).toContain('already taken place')
+    expect(stub.rows[0]?.status).toBe('COMPLETED')
+  })
+
+  it('404s another patient’s appointment, and a missing one identically', async () => {
+    const stranger = await cancel(PATIENT_USER, HIS, stubDb({
+      rows: [row({ id: HIS, patientId: NAKAMURA_CHART })],
+    })).res
+    const missing = await cancel(PATIENT_USER, HIS, stubDb({ rows: [] })).res
+
+    expect(stranger.status).toBe(404)
+    expect(stranger.body).toEqual(missing.body)
+  })
+
+  it('does not write to a row it answered 404 for', async () => {
+    const stub = stubDb({ rows: [row({ id: HIS, patientId: NAKAMURA_CHART })] })
+    await cancel(PATIENT_USER, HIS, stub).res
+
+    expect(stub.updates).toHaveLength(0)
+    expect(stub.rows[0]?.status).toBe('CONFIRMED')
+  })
+
+  // The front desk cancelling for a patient on the phone — the guard's one
+  // branch, and the only reason an admin gets past a chart-scoped lookup.
+  it('lets an admin cancel a patient’s appointment', async () => {
+    const stub = stubDb({ chart: null, rows: [row({ id: HIS, patientId: NAKAMURA_CHART })] })
+    const res = await cancel(ADMIN_USER, HIS, stub).res
+
+    expect(res.status).toBe(200)
+    expect(stub.rows[0]?.status).toBe('CANCELLED')
+  })
+
+  it('refuses a stranger with 401', async () => {
+    const res = await cancel(null, ROW.id).res
+
+    expect(res.status).toBe(401)
+    expect(res.body.error.code).toBe('UNAUTHENTICATED')
+  })
+
+  it('400s a malformed id', async () => {
+    const res = await cancel(PATIENT_USER, 'not-a-uuid').res
+
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('INVALID_REQUEST')
+  })
+
+  it('never sends the room or the blocked range', async () => {
+    const res = await cancel(PATIENT_USER, ROW.id).res
+
+    expect(res.body.appointment).not.toHaveProperty('operatoryId')
+    expect(res.body.appointment).not.toHaveProperty('blockedUntil')
+    expect(res.body.appointment).not.toHaveProperty('patientId')
   })
 })
