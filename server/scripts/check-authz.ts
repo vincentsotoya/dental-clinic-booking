@@ -4,12 +4,11 @@
 // tests drive the guards over stubs; this drives them over Better Auth issuing
 // real sessions and Postgres holding real charts.
 //
-// The middleware, the auth instance and the database are production code. The
-// `/probe` routes are not: they stand in for the Phase 4 appointment routes
-// that do not exist yet, because "patient A cannot touch patient B's anything"
-// needs a route addressed by an id to be a claim about anything at all. They
-// are the shape those handlers will take — a WHERE clause, not a comparison
-// (ADR-0007).
+// The middleware, the auth instance and the database are production code —
+// `/probe/appointments/:id` runs the real `requireOwnership`, and only its
+// handler is a stand-in for the cancel and reschedule routes that will sit
+// behind it. The list probe is still the shape that handler will take: a WHERE
+// clause, not a comparison (ADR-0007).
 
 import express from 'express'
 import type { Server } from 'node:http'
@@ -20,6 +19,7 @@ import { prisma } from '../src/db'
 import { env } from '../src/env'
 import { createAuthMiddleware } from '../src/middleware/auth'
 import { getAuth } from '../src/middleware/auth-context'
+import { createRequireOwnership, getOwnedAppointmentId } from '../src/middleware/ownership'
 import { errorHandler } from '../src/routes/errors'
 import { createMeRouter } from '../src/routes/me'
 
@@ -42,6 +42,7 @@ function check(label: string, ok: boolean, detail = ''): void {
 
 function buildApp() {
   const { attachSession, requireAuth, requireRole } = createAuthMiddleware({ auth, db: prisma })
+  const requireOwnership = createRequireOwnership({ db: prisma, requireAuth })
   const app = express()
 
   app.all('/api/auth/*splat', toNodeHandler(auth))
@@ -56,9 +57,9 @@ function buildApp() {
     res.json({ ok: true })
   })
 
-  // Phase 4's shape. The caller's chart id is part of the query, so a stranger's
-  // id and a deleted id both return no rows and both answer 404 — the row's
-  // existence is never disclosed. An admin is the one branch that skips scoping.
+  // The list route's shape. The caller's chart id is part of the query, so a
+  // stranger's row is never in the answer rather than filtered out of it. An
+  // admin is the one branch that skips scoping — the same branch the guard has.
   const scope = (req: express.Request) => {
     const { user, patientId } = getAuth(req)
     return user.role === 'ADMIN' ? {} : { patientId: patientId ?? '' }
@@ -73,18 +74,10 @@ function buildApp() {
     res.json({ ids: rows.map((row) => row.id) })
   })
 
-  app.get('/probe/appointments/:id', requireAuth, async (req, res) => {
-    const row = await prisma.appointment.findFirst({
-      where: { id: String(req.params.id), ...scope(req) },
-      select: { id: true, patientId: true },
-    })
-
-    if (!row) {
-      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No such appointment.' } })
-      return
-    }
-
-    res.json(row)
+  // The guard decides; the handler only reports what it was handed. Reading
+  // `req.params.id` here would prove nothing about the middleware.
+  app.get('/probe/appointments/:id', requireOwnership, (req, res) => {
+    res.json({ id: getOwnedAppointmentId(req) })
   })
 
   app.use(errorHandler)
@@ -152,7 +145,7 @@ async function main() {
   const { call, signIn } = makeClient(`http://localhost:${port}`)
 
   console.log(`Authz proof against ${env.CLINIC_TIMEZONE} clinic on port ${port}.`)
-  console.log('Real Better Auth, real Postgres, real cookies. /probe routes stand in for Phase 4.\n')
+  console.log('Real Better Auth, real Postgres, real cookies. Real guards behind /probe handlers.\n')
 
   // --- Sign-in ------------------------------------------------------------
   console.log('Sign-in over HTTP')
@@ -255,10 +248,17 @@ async function main() {
   const other = await call(`/probe/appointments/${his}`, marsh)
   const gone = await call(`/probe/appointments/${missing}`, marsh)
   const byAdmin = await call(`/probe/appointments/${his}`, admin)
+  const malformed = await call('/probe/appointments/not-a-uuid', marsh)
 
-  check('Marsh reads her own appointment', own.status === 200)
+  check('Marsh reads her own appointment', own.status === 200 && own.body.id === hers)
   check("Marsh cannot read Nakamura's", other.status === 404, `got ${other.status}`)
   check('the row she was refused really exists', byAdmin.status === 200 && byAdmin.body.id === his)
+  // Decided from the string, never from a row, so it hides nothing a 404 would.
+  check(
+    'a malformed id is a 400, not a 404',
+    malformed.status === 400 && malformed.body?.error?.code === 'INVALID_REQUEST',
+    `got ${malformed.status}`,
+  )
   // The point of the 404: "not yours" and "not there" must be one answer, or
   // walking ids counts the clinic's bookings. See ADR-0007.
   check(

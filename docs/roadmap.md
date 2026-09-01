@@ -82,8 +82,8 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
 - [x] **(C)** `POST /api/appointments` — validate → re-check → insert → catch `23P01` → 409
 - [x] **(C)** 🎯 Concurrency: the losing insert held on the index, released into a real `23P01`
 - [x] **(C)** `GET /api/appointments/me` — `?when=upcoming|past|all`, scoped by a WHERE clause
-- [ ] **(C)** `requireOwnership` — the fetch-then-compare exception (ADR-0007), built here
-      because cancel and reschedule are the routes that need it
+- [x] **(C)** `requireOwnership` — built here because cancel and reschedule are the routes that
+      need it. A pure guard: it clears an id, never hands over a row
 - [ ] **(C)** `PATCH /api/appointments/:id/cancel`
 - [ ] **(C)** `PATCH /api/appointments/:id/reschedule` — one transaction
 - [ ] **(C)** `AppointmentStatusHistory` written on every status change

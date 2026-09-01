@@ -13,14 +13,32 @@ handler that forgets to compare returns another patient's appointment; a handler
 filter returns *every* patient's appointments, which is louder, fails the permission matrix
 immediately, and is visible in any manual test. Neither is acceptable, but only one of them hides.
 
-`requireOwnership` still exists, because Phase 4 has routes — cancel, reschedule — that are
-addressed by appointment id and must load the row before they can know who owns it. There it is a
-genuine fetch-then-compare. It is the exception, and the smaller the set of routes that use it,
-the smaller the set that can get it wrong.
+`requireOwnership` guards the routes that are addressed by an appointment id — cancel, reschedule.
+It was written down here as the exception to all of this, the one place a row has to be loaded
+before anyone can know who owns it. Building it showed otherwise: the guard needs no column but
+`id`, so it asks whether a row with that id exists *for this caller* and never loads one to
+compare against. It is the same WHERE clause, asked as a question rather than for data. The rule
+above has no exception.
 
-`ADMIN` skips the scoping in exactly one branch, in the middleware. An `OR role = 'ADMIN'` smuggled
-into each query is the same rule written many times, which is the same rule waiting to be written
-wrong once.
+`ADMIN` skips the scoping in exactly one branch, in that middleware. An `OR role = 'ADMIN'`
+smuggled into each query is the same rule written many times, which is the same rule waiting to be
+written wrong once.
+
+## The guard clears an id, not a row
+
+The obvious economy is for the middleware to attach the row it just read, sparing the handler a
+second lookup. It does not, and both reasons are worth more than the round trip.
+
+The row would be read outside the handler's transaction. Cancel decides from `status` whether the
+transition is even legal, and a status read in middleware can be stale by the time the `UPDATE`
+runs. So the handler reads it again inside the transaction it writes in, where the read and the
+write see one snapshot.
+
+And the handler takes the id from `getOwnedAppointmentId`, never from `req.params`. Only the guard
+writes that field, so a route mounted without the guard throws `INTERNAL` rather than writing to a
+stranger's row. That converts the failure mode this whole ADR is about — a check that is forgotten
+and hides — into the loud one, and it is the trade `getAuth` already makes for the session
+(ADR-0008).
 
 ## A row that exists and is not yours returns 404
 
@@ -37,6 +55,11 @@ without this file open.
 Falling out of the first decision, this is mostly free — a scoped query returns no rows for a
 stranger's id and for a deleted id alike, so 404 is what the handler would naturally produce. The
 decision is really to *not* add a second lookup that turns some of those into 403s.
+
+A malformed id is the one thing answered differently, with a 400, and it is not a crack in this.
+It is decided from the string before any row is looked for, so it separates no two ids the caller
+could not already separate themselves. Rejecting it also keeps a non-UUID away from a `uuid`
+column, where Postgres raises and the honest 404 would have become a 500.
 
 ## Signing up with a patient's email does not give you their chart
 
@@ -71,5 +94,6 @@ identity here — it is a way to reach someone, and two family members sharing o
 going to happen. Identity is `user.email`, which Better Auth keeps unique, and which a password
 defends.
 
-Every handler that returns patient data must be scoped. That is a property the permission matrix
-tests route by route, because it cannot be enforced by a type.
+Every handler that touches patient data must either scope its own query or sit behind
+`requireOwnership` and act on the id it cleared. Nothing in between, and no third way. That is a
+property the permission matrix tests route by route, because it cannot be enforced by a type.

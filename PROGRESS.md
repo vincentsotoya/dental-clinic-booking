@@ -114,13 +114,22 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
       re-check and Postgres accepts a 3am booking with a 201; drop `patientId` from the WHERE
       clause and each patient reads all 12 rows
 
+- [x] `server/src/middleware/ownership.ts` — `requireOwnership` composed over `requireAuth`,
+      plus `getOwnedAppointmentId` as the only way to read what it cleared
+- [x] `errorHandler` no longer echoes a hand-thrown `INTERNAL` message — one fixed 500 message,
+      written once, with the real one logged
+- [x] 🎯 `npm run db:authz` now drives the real guard, not a stand-in — 30 checks, and every
+      claim falsified: drop the chart id from the WHERE clause or widen the admin branch and
+      Marsh reads Nakamura's row with a 200; drop the UUID parse and a malformed id 500s
+
 ## Current Task
 
-- [ ] `requireOwnership` — the fetch-then-compare exception, with cancel as its first caller
+- [ ] `PATCH /api/appointments/:id/cancel` — the guard's first real caller
 
 ## Next
 
-- [ ] `PATCH /api/appointments/:id/cancel`, then reschedule in one transaction
+- [ ] `PATCH /api/appointments/:id/reschedule` in one transaction, then
+      `AppointmentStatusHistory` on every status change
 
 ## Active Blockers
 
@@ -128,6 +137,10 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
 
 ## Recent Decisions
 
+- `requireOwnership` clears an id and never hands over the row, which turned out to leave ADR-0007
+  with no exception in it — the ADR is amended to match what was built
+- A hand-thrown `INTERNAL` was reaching the client with its own message, which the error registry
+  promises never happens. The handler now logs it and sends the one fixed message
 - `getChartId(req)` is where "the caller's own chart, or 403" lives, because both appointment
   routes need it and a route that forgot it would silently act on `undefined`. An admin gets 403
   rather than an empty list: "you have no appointments" and "this account cannot have any" are
@@ -137,8 +150,9 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
 - `?when` defaults to `upcoming` — the slice a "my appointments" screen opens on, and the only
   one bounded by reality. `past` grows without limit, so it must be asked for by name; paginating
   it is Phase 6's problem, on the screen that will actually scroll
-- `db:authz`'s `/probe` list route is now redundant and stays anyway: `/probe/appointments/:id`
-  still stands in for cancel and reschedule, and splitting the script would prove less
+- `db:authz`'s `/probe` list route is now redundant and stays anyway; `/probe/appointments/:id`
+  is no longer a stand-in at all — it runs the real `requireOwnership`, and only its handler is
+  scaffolding for the cancel and reschedule routes that will sit behind it
 - The re-check and the exclusion constraints enforce different things. The constraints know one
   rule — no two CONFIRMED rows overlap for a provider or a room — and nothing about hours, lunch,
   closures, lead time or provider type. Proven, not asserted: delete the re-check and `db:booking`
@@ -211,8 +225,6 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
 - `db:authz` builds its own app: real middleware, real auth, real Postgres, but `/probe`
   routes standing in for Phase 4's. The proof needs a route addressed by an id, and its checks
   are written to fail — deleting the WHERE clause turns 6 of them red
-- `requireOwnership` deferred to Phase 4. Its signature is dictated by cancel and reschedule,
-  and building it now would be guessing at routes that do not exist
 - `/api/me` reads the chart rather than echoing the login. The two records diverge the first
   time the front desk merges (Phase 7) or a patient edits their details (Phase 6)
 - `/api/me` sends identity only. DOB, phone and insurance are the schema's most sensitive
