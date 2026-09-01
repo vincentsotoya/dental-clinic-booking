@@ -67,6 +67,12 @@ export type AvailabilityQuery = {
   timeZone: string
   /** Injectable for the same reason the engine takes it: tests pin the lead-time cutoff. */
   now?: Date
+  /**
+   * An appointment to compute as if it were not booked. Reschedule's, and only
+   * reschedule's: a booking cannot block the move of the very row being moved,
+   * or 09:00 could never shift to 09:15 for its own provider.
+   */
+  excludeAppointmentId?: string
 }
 
 /**
@@ -154,7 +160,7 @@ export async function findAvailability(
   db: AvailabilityDb,
   query: AvailabilityQuery,
 ): Promise<AvailabilityResult> {
-  const { serviceSlug, timeZone, now = new Date() } = query
+  const { serviceSlug, timeZone, now = new Date(), excludeAppointmentId } = query
 
   const dates = datesInRange(query.from, query.to)
   const calendar = createClinicCalendar(timeZone)
@@ -228,6 +234,9 @@ export async function findAvailability(
         status: 'CONFIRMED',
         startsAt: { lt: collisionEnd },
         blockedUntil: { gt: windowStart },
+        // Exactly one row may be excluded, and only by the caller that is
+        // rewriting it. Anything else here would offer a time that is taken.
+        ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {}),
       },
       select: { providerId: true, operatoryId: true, startsAt: true, blockedUntil: true },
     }),

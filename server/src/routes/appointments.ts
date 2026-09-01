@@ -4,6 +4,8 @@ import {
   cancelAppointmentResponse,
   myAppointmentsQuery,
   myAppointmentsResponse,
+  rescheduleAppointmentRequest,
+  rescheduleAppointmentResponse,
   type AppointmentWindow,
 } from '@dental/shared'
 import { Router, type RequestHandler } from 'express'
@@ -16,9 +18,10 @@ import {
 } from '../services/appointment-view'
 import { bookAppointment, type BookingDb } from '../services/booking'
 import { cancelAppointment, type CancellationDb } from '../services/cancellation'
+import { rescheduleAppointment, type ReschedulingDb } from '../services/rescheduling'
 
 export type AppointmentsDeps = {
-  db: BookingDb & CancellationDb
+  db: BookingDb & CancellationDb & ReschedulingDb
   requireAuth: AuthMiddleware['requireAuth']
   /** Only the id-addressed routes take it; the other two are scoped by their own WHERE clause. */
   requireOwnership: RequestHandler
@@ -108,6 +111,26 @@ export function createAppointmentsRouter(deps: AppointmentsDeps): Router {
     // cancelled rather than guessing what it now looks like.
     res.set('Cache-Control', 'no-store')
     res.json(body)
+  })
+
+  router.patch('/appointments/:id/reschedule', deps.requireOwnership, async (req, res) => {
+    const body = rescheduleAppointmentRequest.parse(req.body)
+
+    const appointment = await rescheduleAppointment(db, {
+      appointmentId: getOwnedAppointmentId(req),
+      providerId: body.providerId,
+      startsAt: new Date(body.startsAt),
+      timeZone,
+      now: now(),
+    })
+
+    const payload = rescheduleAppointmentResponse.parse({
+      appointment: toPatientAppointment(appointment),
+    })
+
+    // Same id, new times — a client holding this appointment updates in place.
+    res.set('Cache-Control', 'no-store')
+    res.json(payload)
   })
 
   return router

@@ -1,4 +1,4 @@
-// The wire contract for `POST /api/appointments`.
+// The wire contracts for the appointment routes: book, list, cancel, reschedule.
 //
 // WHAT THE CLIENT IS TRUSTED WITH
 //
@@ -218,3 +218,57 @@ export const cancelAppointmentError = errorBody(cancelAppointmentErrorCode)
 
 export type CancelAppointmentErrorCode = z.infer<typeof cancelAppointmentErrorCode>
 export type CancelAppointmentError = z.infer<typeof cancelAppointmentError>
+
+// ---------------------------------------------------------------------------
+// PATCH /api/appointments/:id/reschedule
+// ---------------------------------------------------------------------------
+
+/**
+ * The same two choices booking takes, and nothing else.
+ *
+ * No `service`: changing the treatment is not moving an appointment, it is
+ * booking a different one, and a thirty-minute exam quietly becoming a
+ * ninety-minute crown in the same slot is exactly the substitution the booking
+ * contract refuses. A patient who wants a different service cancels and books.
+ *
+ * The provider is here because a move often *is* a change of provider — the
+ * only Thursday slot belongs to somebody else — and re-picking the room is the
+ * server's job either way.
+ */
+export const rescheduleAppointmentRequest = z.object({
+  providerId: z.uuid(),
+  /** Must equal an offered slot's `startsAt` exactly; the server re-derives the rest. */
+  startsAt: z.iso.datetime(),
+})
+
+export type RescheduleAppointmentRequest = z.infer<typeof rescheduleAppointmentRequest>
+
+/** The same appointment, at its new time — same `id`, so a link to it still works. */
+export const rescheduleAppointmentResponse = z.object({ appointment: patientAppointment })
+
+export type RescheduleAppointmentResponse = z.infer<typeof rescheduleAppointmentResponse>
+
+/**
+ * Cancel's codes plus booking's, which is what a move actually is: it refuses
+ * on the old appointment's state, and then on whether the new time is free.
+ *
+ * `SERVICE_NOT_FOUND` is absent even though the engine runs. The service comes
+ * from the row rather than the body, so a caller cannot ask for one that does
+ * not exist — and a service retired since the booking was made surfaces as
+ * `SLOT_UNAVAILABLE`, which is true: nothing is on offer.
+ */
+export const rescheduleAppointmentErrorCode = apiErrorCode.extract([
+  'INVALID_REQUEST',
+  'INTERNAL',
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'NOT_RESCHEDULABLE',
+  'SLOT_UNAVAILABLE',
+  'SLOT_TAKEN',
+])
+
+export const rescheduleAppointmentError = errorBody(rescheduleAppointmentErrorCode)
+
+export type RescheduleAppointmentErrorCode = z.infer<typeof rescheduleAppointmentErrorCode>
+export type RescheduleAppointmentError = z.infer<typeof rescheduleAppointmentError>

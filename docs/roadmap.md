@@ -86,7 +86,8 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
       need it. A pure guard: it clears an id, never hands over a row
 - [x] **(C)** `PATCH /api/appointments/:id/cancel` — a status change guarded twice: a legality
       check for the clock, and the status repeated in the UPDATE's WHERE clause for the race
-- [ ] **(C)** `PATCH /api/appointments/:id/reschedule` — one transaction
+- [x] **(C)** `PATCH /api/appointments/:id/reschedule` — one transaction. The row moves rather
+      than being replaced, and is excluded from its own re-check so it cannot block its own move
 - [ ] **(C)** `AppointmentStatusHistory` written on every status change
 
 ## Phase 5 — Patient frontend ⭐ first shippable portfolio piece

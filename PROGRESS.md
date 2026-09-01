@@ -137,13 +137,28 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
       visit that already started cancels; mount the route on `requireAuth` and Marsh cancels
       Nakamura's
 
+- [x] `shared/src/appointments.ts` — the reschedule contract; `NOT_RESCHEDULABLE` added to
+      `apiErrorCode` as a 409
+- [x] `findAvailability` takes `excludeAppointmentId`; `refusalToChange` extracted to
+      `server/src/services/appointment-state.ts`, where cancel and reschedule both read it
+- [x] `server/src/services/rescheduling.ts` and `PATCH /api/appointments/:id/reschedule`
+- [x] 🎯 `npm run db:reschedule` — 28 checks over real cookies and real rows, including both
+      races: a rival booking held in an open transaction turns the move into a real `23P01`
+      from an UPDATE, and the front desk marking the row COMPLETED mid-move wins the row lock
+- [x] 🎯 Falsified, and it corrected the proof twice: removing `excludeAppointmentId` makes an
+      appointment block its own move with a 409; removing the status from the UPDATE's WHERE
+      clause lets a move overwrite the clinic's COMPLETED. The cancelled-row check passed with
+      its branch deleted until the planted row was moved into the future — backdated, it was
+      being refused for having started
+
 ## Current Task
 
-- [ ] `PATCH /api/appointments/:id/reschedule` — cancel and rebook in one transaction
+- [ ] `AppointmentStatusHistory` written on every status change — and on a move, which is not
+      a status change, which is the thing to settle first
 
 ## Next
 
-- [ ] `AppointmentStatusHistory` written on every status change
+- [ ] Phase 5 — patient frontend, the first shippable state
 
 ## Active Blockers
 
@@ -151,6 +166,29 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
 
 ## Recent Decisions
 
+- A reschedule moves the row rather than cancelling it and booking a new one. The appointment
+  is the same commitment at a different hour: the id in a confirmation link stays valid and the
+  patient's list shows one booking, not a cancellation they never asked for
+- The cost of that, and the reason the next task is what it is: the original time is kept
+  nowhere. `AppointmentStatusHistory` has to record a move, not only a status change
+- The row is excluded from its own re-check. Left in, its own buffer covers the slot it is
+  moving into, so 09:00 could never shift to 09:15 for its own provider — proven by deleting the
+  exclusion. The exclusion constraints still see it, and `EXCLUDE` compares distinct rows, so
+  the row cannot collide with itself at write time either
+- The body carries a provider and a start, never a service. Changing the treatment is booking a
+  different appointment, and a thirty-minute exam that could become a ninety-minute crown in the
+  same slot is the substitution the booking contract already refuses
+- `bufferMins` is re-snapshotted on a move, not carried over. The row is being placed afresh, so
+  it takes the buffer in force now — and `blockedUntil` was computed with that one, which the
+  CHECK constraint insists on (ADR-0004)
+- Moving a cancelled appointment is refused rather than treated as a revival — a released slot
+  would come back on the books without passing through booking
+- `NOT_RESCHEDULABLE` is its own code beside `NOT_CANCELLABLE`, for what is currently one
+  predicate. A clinic that allows a late cancellation but not a late move is an ordinary policy,
+  and it arrives as a change to one code rather than a split of a shared one
+- Only the clock check is load-bearing before the write. Cancelled and closed-out are both
+  caught again by `status = 'CONFIRMED'` in the UPDATE; they stay because they refuse before the
+  engine runs and name the reason
 - Cancel is a named sub-resource, not `PATCH { status }`. Status is not the patient's field to
   set — `COMPLETED` and `NO_SHOW` are the clinic's judgements — and a route that took one would
   spend its first lines refusing two of the four values

@@ -48,8 +48,14 @@ export const apiErrorCode = z.enum([
   'SLOT_TAKEN',
 
   // Acting on an appointment that is no longer in the state the caller thinks.
+  // Two codes for what is currently one predicate, because the rules are free
+  // to diverge: a clinic that lets you cancel late but not move a booking is an
+  // ordinary policy, and it would arrive as a change to one of these, not a
+  // split of a shared one.
   /** Already over, or the clinic has closed it out. The message says which. */
   'NOT_CANCELLABLE',
+  /** The same, for a move rather than a cancellation. */
+  'NOT_RESCHEDULABLE',
 ])
 
 export type ApiErrorCode = z.infer<typeof apiErrorCode>

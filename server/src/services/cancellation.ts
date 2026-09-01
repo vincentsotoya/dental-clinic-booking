@@ -18,9 +18,9 @@
 // started, because "too late" is a fact about the clock that no WHERE clause
 // on `status` can express. Both proven by deleting them — see `db:cancel`.
 
-import type { AppointmentStatus } from '@dental/shared'
 import type { Prisma, PrismaClient } from '../../generated/prisma/client'
 import { ApiError } from '../errors'
+import { refusalToChange } from './appointment-state'
 import { type AppointmentRow, PATIENT_APPOINTMENT_SELECT } from './appointment-view'
 
 export type CancellationDb = Pick<PrismaClient, 'appointment' | '$transaction'>
@@ -32,24 +32,6 @@ export type CancellationRequest = {
 }
 
 const NO_SUCH_APPOINTMENT = 'No such appointment.'
-
-/**
- * Why this appointment cannot be cancelled, or null if it can.
- *
- * There is deliberately no notice window. A clinic would far rather hear at
- * 7am that nobody is coming at 9 than have the chair sit empty, and refusing a
- * late cancellation does not keep the patient — it converts them into a
- * no-show. Charging for one is Phase 9's problem, not this route's.
- */
-function refusal(row: { status: AppointmentStatus; startsAt: Date }, now: Date): string | null {
-  if (row.status === 'COMPLETED') return 'That appointment has already taken place.'
-  // Cancelling one would erase the record of not turning up, which is the one
-  // thing that status exists to remember.
-  if (row.status === 'NO_SHOW') return 'That appointment is closed. Please call the clinic.'
-  if (row.startsAt <= now) return 'That appointment has already started. Please call the clinic.'
-
-  return null
-}
 
 /**
  * Cancel it, or explain why not.
@@ -83,7 +65,7 @@ export async function cancelAppointment(
 
     if (found.status === 'CANCELLED') return found
 
-    const reason = refusal(found, now)
+    const reason = refusalToChange(found, now)
     if (reason) throw new ApiError('NOT_CANCELLABLE', reason)
 
     const { count } = await tx.appointment.updateMany({
@@ -102,7 +84,7 @@ export async function cancelAppointment(
 
     throw new ApiError(
       'NOT_CANCELLABLE',
-      refusal(after, now) ?? 'That appointment just changed. Please try again.',
+      refusalToChange(after, now) ?? 'That appointment just changed. Please try again.',
     )
   })
 }

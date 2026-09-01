@@ -8,6 +8,8 @@ import {
   myAppointmentsError,
   myAppointmentsQuery,
   myAppointmentsResponse,
+  rescheduleAppointmentError,
+  rescheduleAppointmentRequest,
 } from './appointments'
 
 const VALID = {
@@ -184,5 +186,43 @@ describe('myAppointmentsErrorCode', () => {
   // Addressed by the session, not by an id, so nothing can be probed for.
   it.each(['NOT_FOUND', 'SLOT_TAKEN', 'SERVICE_NOT_FOUND'])('does not admit %s', (code) => {
     expect(myAppointmentsError.safeParse({ error: { code, message: 'x' } }).success).toBe(false)
+  })
+})
+
+describe('rescheduleAppointmentRequest', () => {
+  const MOVE = { providerId: '1b4e2d00-0000-4000-8000-000000000001', startsAt: '2026-09-01T14:15:00.000Z' }
+
+  it('takes a provider and a start, and nothing else', () => {
+    expect(rescheduleAppointmentRequest.safeParse(MOVE).success).toBe(true)
+  })
+
+  // Moving an appointment may not change the treatment: a thirty-minute exam
+  // must not become a ninety-minute crown in the same slot.
+  it('does not carry the service through', () => {
+    const parsed = rescheduleAppointmentRequest.parse({ ...MOVE, service: 'root-canal' })
+    expect(parsed).not.toHaveProperty('service')
+  })
+
+  it.each(['providerId', 'startsAt'])('requires %s', (field) => {
+    const body: Record<string, unknown> = { ...MOVE }
+    delete body[field]
+    expect(rescheduleAppointmentRequest.safeParse(body).success).toBe(false)
+  })
+})
+
+describe('rescheduleAppointmentErrorCode', () => {
+  // A move refuses on the old appointment's state, then on the new time.
+  it.each(['NOT_FOUND', 'NOT_RESCHEDULABLE', 'SLOT_UNAVAILABLE', 'SLOT_TAKEN'])(
+    'admits %s',
+    (code) => {
+      const body = { error: { code, message: 'x' } }
+      expect(rescheduleAppointmentError.safeParse(body).success).toBe(true)
+    },
+  )
+
+  // The service comes from the row, so no caller can name one that is missing.
+  it.each(['SERVICE_NOT_FOUND', 'NOT_CANCELLABLE'])('does not admit %s', (code) => {
+    const body = { error: { code, message: 'x' } }
+    expect(rescheduleAppointmentError.safeParse(body).success).toBe(false)
   })
 })

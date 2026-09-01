@@ -5,6 +5,8 @@ import {
   cancelAppointmentResponse,
   myAppointmentsError,
   myAppointmentsResponse,
+  rescheduleAppointmentError,
+  rescheduleAppointmentResponse,
 } from '@dental/shared'
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
@@ -73,6 +75,8 @@ type StubOptions = {
   rows?: StubRow[]
   /** Runs inside `updateMany`, before it matches — the front desk, committing first. */
   interfere?: () => void
+  /** Throw from here to stand in for a constraint rejecting the move. */
+  update?: () => unknown
 }
 
 type StubRow = {
@@ -122,6 +126,7 @@ function stubDb(options: StubOptions = {}) {
       updateMany: async (args: FindManyArgs & { data: Record<string, unknown> }) => {
         updates.push(args)
         options.interfere?.()
+        if (options.update) return options.update() as { count: number }
         const hit = rows.filter((row) => matches(row, args.where))
         hit.forEach((row) => Object.assign(row, args.data))
         return { count: hit.length }
@@ -535,5 +540,170 @@ describe('PATCH /api/appointments/:id/cancel', () => {
     expect(res.body.appointment).not.toHaveProperty('operatoryId')
     expect(res.body.appointment).not.toHaveProperty('blockedUntil')
     expect(res.body.appointment).not.toHaveProperty('patientId')
+  })
+})
+
+/** 08:15 EDT the same Monday — on the grid, inside the provider's morning. */
+const MOVED_TO = '2026-08-31T12:15:00.000Z'
+
+function reschedule(
+  user: StubUser | null,
+  id: string,
+  body: object = { providerId: PROVIDER.id, startsAt: MOVED_TO },
+  stub = stubDb({ rows: [row()] }),
+) {
+  const app = createApp({
+    db: stub.db,
+    auth: stubAuth(user),
+    databaseIsReachable: async () => true,
+    timeZone: 'America/New_York',
+    now: () => NOW,
+  } as unknown as Parameters<typeof createApp>[0])
+
+  return { res: request(app).patch(`/api/appointments/${id}/reschedule`).send(body), stub }
+}
+
+describe('PATCH /api/appointments/:id/reschedule', () => {
+  it('moves the row and answers 200 with the same id at the new time', async () => {
+    const stub = stubDb({ rows: [row()] })
+    const res = await reschedule(PATIENT_USER, ROW.id, undefined, stub).res
+
+    expect(res.status).toBe(200)
+    expect(() => rescheduleAppointmentResponse.parse(res.body)).not.toThrow()
+    expect(res.body.appointment.id).toBe(ROW.id)
+    expect(res.body.appointment.startsAt).toBe(MOVED_TO)
+    expect(res.body.appointment.status).toBe('CONFIRMED')
+  })
+
+  // Without this the row blocks its own move: its own buffer covers the slot it
+  // is moving into, so 09:00 could never shift to 09:15 for its own provider.
+  it('asks the engine to compute as if this appointment were not booked', async () => {
+    const stub = stubDb({ rows: [row()] })
+    await reschedule(PATIENT_USER, ROW.id, undefined, stub).res
+
+    expect(stub.reads[0]?.where?.id).toEqual({ not: ROW.id })
+  })
+
+  it('derives every time from the engine and never rewrites the service', async () => {
+    const stub = stubDb({ rows: [row()] })
+    const body = { providerId: PROVIDER.id, startsAt: MOVED_TO, service: 'root-canal' }
+    await reschedule(PATIENT_USER, ROW.id, body, stub).res
+
+    const written = (stub.updates[0] as { data: Record<string, unknown> }).data
+    expect(written).not.toHaveProperty('serviceId')
+    expect((written.endsAt as Date).toISOString()).toBe('2026-08-31T12:45:00.000Z')
+    expect((written.blockedUntil as Date).toISOString()).toBe('2026-08-31T12:55:00.000Z')
+    // Re-snapshotted with the buffer that produced that blockedUntil, or the
+    // CHECK constraint would reject the row (ADR-0004).
+    expect(written.bufferMins).toBe(SERVICE.bufferMins)
+  })
+
+  it('keeps the status in the WHERE clause, as cancel does', async () => {
+    const stub = stubDb({ rows: [row()] })
+    await reschedule(PATIENT_USER, ROW.id, undefined, stub).res
+
+    expect((stub.updates[0] as { where: unknown }).where).toEqual({
+      id: ROW.id,
+      status: 'CONFIRMED',
+    })
+  })
+
+  it('409s SLOT_UNAVAILABLE for a time outside working hours', async () => {
+    const stub = stubDb({ rows: [row()] })
+    const body = { providerId: PROVIDER.id, startsAt: '2026-08-31T20:00:00.000Z' }
+    const res = await reschedule(PATIENT_USER, ROW.id, body, stub).res
+
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('SLOT_UNAVAILABLE')
+    expect(() => rescheduleAppointmentError.parse(res.body)).not.toThrow()
+    expect(stub.updates).toHaveLength(0)
+  })
+
+  // Moving it would revive a slot the clinic released, without ever passing
+  // back through booking.
+  it('409s a cancelled appointment rather than reviving it', async () => {
+    const stub = stubDb({ rows: [row({ status: 'CANCELLED' })] })
+    const res = await reschedule(PATIENT_USER, ROW.id, undefined, stub).res
+
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('NOT_RESCHEDULABLE')
+    expect(res.body.error.message).toContain('cancelled')
+  })
+
+  it.each(['COMPLETED', 'NO_SHOW'])('409s a %s appointment', async (status) => {
+    const stub = stubDb({ rows: [row({ status })] })
+    const res = await reschedule(PATIENT_USER, ROW.id, undefined, stub).res
+
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('NOT_RESCHEDULABLE')
+    expect(stub.updates).toHaveLength(0)
+  })
+
+  it('409s an appointment that has already started', async () => {
+    const stub = stubDb({ rows: [row({ startsAt: new Date(NOW.getTime() - 60_000) })] })
+    const res = await reschedule(PATIENT_USER, ROW.id, undefined, stub).res
+
+    expect(res.status).toBe(409)
+    expect(res.body.error.message).toContain('already started')
+  })
+
+  // A move loses the same race a booking does, and to a booking: both end up as
+  // one index entry on one operatory.
+  it('409s SLOT_TAKEN when the constraint rejects the move', async () => {
+    const stub = stubDb({
+      rows: [row()],
+      update: () => {
+        throw Object.assign(new Error('Database error.'), {
+          code: 'P2039',
+          meta: { driverAdapterError: { cause: { code: '23P01' } } },
+        })
+      },
+    })
+    const res = await reschedule(PATIENT_USER, ROW.id, undefined, stub).res
+
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('SLOT_TAKEN')
+  })
+
+  it('lets an unrelated database failure stay a 500', async () => {
+    const stub = stubDb({
+      rows: [row()],
+      update: () => {
+        throw Object.assign(new Error('nope'), {
+          code: 'P2002',
+          meta: { driverAdapterError: { cause: { code: '23505' } } },
+        })
+      },
+    })
+    const res = await reschedule(PATIENT_USER, ROW.id, undefined, stub).res
+
+    expect(res.status).toBe(500)
+    expect(res.body.error.code).toBe('INTERNAL')
+  })
+
+  it('404s another patient row, and does not move it', async () => {
+    const original = new Date(ROW.startsAt)
+    const stub = stubDb({ rows: [row({ id: HIS, patientId: NAKAMURA_CHART })] })
+    const res = await reschedule(PATIENT_USER, HIS, undefined, stub).res
+
+    expect(res.status).toBe(404)
+    expect(stub.updates).toHaveLength(0)
+    expect(stub.rows[0]?.startsAt).toEqual(original)
+  })
+
+  it('refuses a stranger with 401 before it looks at the body', async () => {
+    const res = await reschedule(null, ROW.id, { nonsense: true }).res
+
+    expect(res.status).toBe(401)
+    expect(res.body.error.code).toBe('UNAUTHENTICATED')
+  })
+
+  it('400s a malformed body and names the field', async () => {
+    const body = { providerId: 'not-a-uuid', startsAt: MOVED_TO }
+    const res = await reschedule(PATIENT_USER, ROW.id, body).res
+
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('INVALID_REQUEST')
+    expect(res.body.error.message).toContain('providerId')
   })
 })
