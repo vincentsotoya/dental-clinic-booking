@@ -41,6 +41,9 @@ const STATUS: Record<ApiErrorCode, number> = {
   INTERNAL: 500,
 }
 
+/** The only thing a 500 ever says. Written once so the two paths cannot drift. */
+const INTERNAL_MESSAGE = 'Something went wrong.'
+
 function send(res: Response, code: ApiErrorCode, message: string): void {
   const body: ApiErrorBody = { error: { code, message } }
   res.status(STATUS[code]).json(body)
@@ -67,6 +70,14 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   // A per-feature `instanceof` would mean a forgotten branch turns a failure
   // the code already understood into a 500.
   if (error instanceof ApiError) {
+    // Except INTERNAL: a thrown one names a middleware or a table, and the
+    // contract promises this code always carries the same fixed message.
+    if (error.code === 'INTERNAL') {
+      console.error(error)
+      send(res, 'INTERNAL', INTERNAL_MESSAGE)
+      return
+    }
+
     send(res, error.code, error.message)
     return
   }
@@ -75,5 +86,5 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   // connection string or the contents of a row, so it is logged and not
   // serialised — the client gets the fixed message the contract promises.
   console.error(error)
-  send(res, 'INTERNAL', 'Something went wrong.')
+  send(res, 'INTERNAL', INTERNAL_MESSAGE)
 }

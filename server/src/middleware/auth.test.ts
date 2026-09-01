@@ -168,5 +168,7 @@ describe('a route with no session middleware', () => {
 
     expect(res.status).toBe(500)
     expect(res.body.error.code).toBe('INTERNAL')
+    // The wiring bug is logged, not served: a 500 says one thing, always.
+    expect(res.body.error.message).toBe('Something went wrong.')
   })
 })
