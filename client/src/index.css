@@ -1,1 +1,98 @@
-@import "tailwindcss";
+/* The design language, as tokens. Reasoning lives in docs/design-system.md.
+ *
+ * Semantic names, never literal ones: components ask for `bg-ground` and
+ * `text-ink`, so the dark palette is a swap here rather than a `dark:` variant
+ * repeated at every call site. `@theme inline` is what makes that possible —
+ * it emits `var(--ground)` into the utility instead of baking the hex in.
+ */
+
+@import 'tailwindcss';
+@import '@fontsource-variable/outfit';
+@import '@fontsource-variable/geist';
+
+@theme inline {
+  --font-display: 'Outfit Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  /* Never white by name. In dark mode a legible label on cobalt is dark. */
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-edge: var(--edge);
+
+  /* One radius scale, three steps, applied everywhere (skill §4.4). */
+  --radius-card: 12px;
+  --radius-input: 8px;
+  --radius-pill: 9999px;
+}
+
+:root {
+  color-scheme: light dark;
+
+  --ground: #fbf9f6;
+  --surface: #ffffff;
+  --ink: #17191c;
+  --muted: #6b7076;
+  --accent: #1b45d8;
+  --accent-ink: #ffffff;
+  /* Tint for a selected slot or an active step. Not a second accent. */
+  --accent-soft: #e8ecfd;
+  --edge: #e7e2db;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #121316;
+    --surface: #1a1c20;
+    --ink: #f2f0ec;
+    --muted: #a0a4aa;
+    /* Lifted, because #1b45d8 on near-black is unreadable. */
+    --accent: #5b7cff;
+    /* White on lifted cobalt is 3.64:1 and fails AA. Dark label, measured. */
+    --accent-ink: #121316;
+    --accent-soft: #1c2440;
+    --edge: #2a2d33;
+  }
+}
+
+@layer base {
+  body {
+    background-color: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    /* Display type is set tight; body is not. */
+    letter-spacing: -0.02em;
+  }
+
+  /* Keyboard-only booking is a Phase 11 acceptance criterion, so the focus
+   * ring is a base style rather than something each component remembers. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* MOTION_INTENSITY 3: transitions are feedback, so they are the only thing
+   * to switch off. Nothing here loops, so nothing here needs a still frame. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
