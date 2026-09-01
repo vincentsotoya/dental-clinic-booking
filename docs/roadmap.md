@@ -74,7 +74,7 @@ typed API client they depend on are built — see ADR-0006 and ADR-0007 for what
 - [x] **(C)** Authz tests — the stubbed permission matrix, plus 🎯 `npm run db:authz` proving
       patient A cannot touch patient B's anything over real cookies
 
-## Phase 4 — Booking API
+## Phase 4 — Booking API ✅
 
 Opened with `POST` rather than `requireOwnership`: nothing here is addressed by an id, so the
 middleware had no first caller. Cancel and reschedule dictate its signature.
@@ -88,12 +88,18 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
       check for the clock, and the status repeated in the UPDATE's WHERE clause for the race
 - [x] **(C)** `PATCH /api/appointments/:id/reschedule` — one transaction. The row moves rather
       than being replaced, and is excluded from its own re-check so it cannot block its own move
-- [ ] **(C)** `AppointmentStatusHistory` written on every status change
+- [x] **(C)** `AppointmentEvent` — a log of what happened, not of statuses, because a move
+      changes none and has the most to record. Carries the actor, so "who cancelled this?" has
+      an answer
 
 ## Phase 5 — Patient frontend ⭐ first shippable portfolio piece
 
-- [ ] **(V)** Install Impeccable plugin — first needed here
-- [ ] **(S)** `/design-taste-frontend` — visual direction before building
+- [x] **(V)** Install Impeccable plugin — its own marketplace (`pbakaus/impeccable`), not the
+      official one
+- [x] **(S)** `/design-taste-frontend` — visual direction settled: Cobalt & Cream, tokens in
+      `client/src/index.css`, reasoning in `docs/design-system.md`
+- [x] **(S)** `/impeccable init` → `PRODUCT.md`. Moved ahead of the components: it captures product
+      truth, and capturing it after nine components exist means retrofitting them
 - [ ] **(S)** `/pick-ui-library`
 - [ ] **(C)** Typed API client + TanStack Query
 - [ ] **(C)** Session hook over `GET /api/me` + protected routes — moved from Phase 3, which had
@@ -102,7 +108,8 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
 - [ ] **(V)** Booking flow: ServicePicker → DentistPicker → Calendar → SlotGrid → Confirm
 - [ ] **(V)** Handle `SLOT_TAKEN` 409 gracefully — refetch and explain
 - [ ] **(V)** Signup and login screens
-- [ ] **(S)** `/impeccable init` → `critique`, then `/review-animations`
+- [ ] **(S)** `/impeccable critique`, then `/review-animations` — both are review passes and stay
+      here, after there is something built to review
 - [ ] **(V)** 🎯 Deploy
 
 ## Phase 6 — Patient account

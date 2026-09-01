@@ -8,8 +8,9 @@ questions. **(S)** marks a task driven by a skill session.
 
 ## Current Phase
 
-Phase 4 — Booking API. Goal: writing an appointment is a race the database wins — an optimistic
-insert, `23P01` caught and mapped to 409, and two simultaneous bookings where exactly one lands.
+Phase 5 — Patient frontend, the first shippable portfolio state. Phase 4 is complete: book,
+list, cancel and reschedule, each proven against real rows, with every change appended to an
+event log inside the transaction that made it.
 
 ## Completed
 
@@ -151,14 +152,36 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
       its branch deleted until the planted row was moved into the future — backdated, it was
       being refused for having started
 
+- [x] `AppointmentEvent` + `ActorRole` in `schema.prisma`; migration
+      `20260901120755_add_appointment_events`, hand-edited for the actor FK and a CHECK that an
+      event describes a change
+- [x] `server/src/services/appointment-events.ts` — one writer, called from inside booking's,
+      cancellation's and rescheduling's transactions; the three services take an `actor`, the
+      routes read it off the session, the seed acts as `SYSTEM`
+- [x] 🎯 `npm run db:events` — 21 checks over real rows: an appointment's booking, move and
+      cancellation land as three events, the move records the time it came from, the front desk's
+      cancellation names the admin rather than the chart's owner, a refused change writes nothing,
+      and asking to cancel twice logs once
+- [x] 🎯 The two FK directions proven opposite: deleting the login that acted leaves the event
+      standing with `actor_user_id` null, deleting the appointment takes its events with it
+- [x] 🎯 Falsified: record the new time as `fromStartsAt` and the move's own claim collapses;
+      hardcode the actor role and the front-desk case names the wrong person
+- [x] **Phase 4 complete** — 282 tests green, 139 checks across five `db:*` proofs
+
+- [x] `/design-taste-frontend` — **Cobalt & Cream**; tokens in `client/src/index.css`, reasoning
+      in `docs/design-system.md`, specimen page published as an artifact. Outfit + Geist installed
+      and self-hosted, client still builds
+- [x] Impeccable installed from its own marketplace; `/impeccable init` → `PRODUCT.md` at the
+      repo root, inherited by `client`. Practice named **Quillon Dental**, fictional and checked
+      against real US practices before adoption
+
 ## Current Task
 
-- [ ] `AppointmentStatusHistory` written on every status change — and on a move, which is not
-      a status change, which is the thing to settle first
+- [ ] Typed API client + TanStack Query over the four appointment endpoints
 
 ## Next
 
-- [ ] Phase 5 — patient frontend, the first shippable state
+- [ ] Session hook over `GET /api/me` + protected routes, then the marketing pages
 
 ## Active Blockers
 
@@ -166,6 +189,53 @@ insert, `23P01` caught and mapped to 409, and two simultaneous bookings where ex
 
 ## Recent Decisions
 
+- The practice is **Quillon Dental**, fictional. Three candidates were searched against real US
+  practices first and two were rejected for colliding (`Fernwood Dental` exists in Austin;
+  `Alder` collides three ways). Recorded in `PRODUCT.md` as fictional so no later session treats
+  it as an operating business
+- Photography will be **open-license stock**, never described as this clinic's own rooms or staff.
+  A stock portrait is never captioned as a named provider
+- Service prices are published as **list prices before insurance**, with the reason said plainly to
+  the patient. That is ADR-0003 in the patient's own words rather than a gap to hide: the system
+  records a plan and cannot compute a share, so it must not imply one
+- `PRODUCT.md` lives at the repo root, not `client/`. The product truth spans the API as well, the
+  repo already keeps its durable docs there, and Impeccable resolves it from the client as
+  `../PRODUCT.md`
+- `/impeccable init` moved ahead of the components. It captures product truth, and the roadmap had
+  it running after every page was built, which would have meant retrofitting them. `critique` and
+  `/review-animations` stay at the end, where a review pass belongs
+- **Cobalt on cream, not teal.** Every dental practice in the search results is teal or mint;
+  adopting it would make the site invisible in the market it depicts. Full reasoning and the
+  measured contrast table in `docs/design-system.md`
+- The primary button's label is **dark** in dark mode. White on lifted cobalt measures 3.64:1 and
+  fails AA, so the token is `accent-ink` and never `white` — a component hardcoding `text-white`
+  is correct in one mode and unreadable in the other, and nothing in the type system objects
+- Dials are 5 / 3 / 4, not the skill's 8 / 6 / 4 baseline. Healthcare is a trust-first constraint
+  that outranks aesthetic preference, and Phase 11 already commits to Lighthouse ≥ 95 and
+  keyboard-only booking. The focus ring and `prefers-reduced-motion` are base styles for that
+  reason, so no component can forget them
+- Cabinet Grotesk was dropped for **Outfit**: Fontshare-only, so it ships as a hand-committed
+  binary or a font CDN `<link>`, and neither belongs in the production critical path
+- The design skill covers marketing surfaces and explicitly excludes wizards and product UI, which
+  is half of Phase 5. The booking flow and the appointments list inherit the tokens and none of
+  the composition advice; how picking a slot *feels* is a separate session before those components
+  are written
+- The log records **events, not status changes**. A reschedule changes no status and is the one
+  change with something irreplaceable to record: the appointment row keeps only where it is now,
+  so the time it moved from survives nowhere else
+- Every event is written inside the transaction that made the change. A log that can be written
+  after the commit is a log that can be missing, and the two must land together or not at all
+- Events carry the actor, and the actor is the **login**, not the chart. They differ exactly when
+  the front desk acts for a patient, which is the case the column exists to tell apart
+- `ON DELETE SET NULL` on the actor, `CASCADE` on the appointment. Deleting a login forgets who
+  acted, never what happened; deleting an appointment takes a log that describes only it
+- **Prisma proposes dropping both hand-written FKs in every migration it generates.** It cannot
+  see them, so it reads them as drift. Deleting those `DROP CONSTRAINT` lines is now part of
+  writing a migration — see `docs/database-design.md`
+- `prisma migrate dev` blocks on an interactive prompt in this setup. The migration applied and
+  `prisma generate` finished the job; `migrate status` is the way to check what really landed
+- The idempotent second cancellation writes no event. It changes nothing, and a log that says a
+  thing happened twice when it happened once is worse than no log
 - A reschedule moves the row rather than cancelling it and booking a new one. The appointment
   is the same commitment at a different hour: the id in a confirmation link stays valid and the
   patient's list shows one booking, not a cancellation they never asked for
