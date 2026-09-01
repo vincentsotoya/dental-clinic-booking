@@ -95,6 +95,7 @@ function stubDb(options: StubOptions = {}) {
   const writes: CreateArgs[] = []
   const reads: FindManyArgs[] = []
   const updates: unknown[] = []
+  const events: { data: Record<string, unknown> }[] = []
   const rows = options.rows ?? []
 
   const db = {
@@ -119,10 +120,18 @@ function stubDb(options: StubOptions = {}) {
           notes: args.data.notes ?? null,
         }
       },
-      findFirst: async (args: FindManyArgs = {}) =>
-        rows.find((row) => matches(row, args.where)) ?? null,
-      findUnique: async (args: FindManyArgs = {}) =>
-        rows.find((row) => matches(row, args.where)) ?? null,
+      // Copies, not the stored objects. Prisma deserialises each read off the
+      // wire, so a row already in hand does not change under a later UPDATE —
+      // and the reschedule event reads its "from" values out of exactly such a
+      // row after the write.
+      findFirst: async (args: FindManyArgs = {}) => {
+        const hit = rows.find((row) => matches(row, args.where))
+        return hit ? { ...hit } : null
+      },
+      findUnique: async (args: FindManyArgs = {}) => {
+        const hit = rows.find((row) => matches(row, args.where))
+        return hit ? { ...hit } : null
+      },
       updateMany: async (args: FindManyArgs & { data: Record<string, unknown> }) => {
         updates.push(args)
         options.interfere?.()
@@ -132,9 +141,16 @@ function stubDb(options: StubOptions = {}) {
         return { count: hit.length }
       },
     },
+    // The log the three writing services append to, inside their transactions.
+    appointmentEvent: {
+      create: async (args: { data: Record<string, unknown> }) => {
+        events.push(args)
+        return { id: 'event_1', ...args.data }
+      },
+    },
   }
 
-  return { db: { ...db, ...stubTransaction(db) }, writes, reads, rows, updates }
+  return { db: { ...db, ...stubTransaction(db) }, writes, reads, rows, updates, events }
 }
 
 function post(user: StubUser | null, body: object, db: ReturnType<typeof stubDb>['db'] = stubDb().db) {
@@ -400,7 +416,14 @@ const NAKAMURA_CHART = '3d604f00-0000-4000-8000-0000000000a2'
 
 /** Hers, confirmed, and a month after `NOW` unless a test says otherwise. */
 function row(overrides: Partial<StubRow> = {}): StubRow {
-  return { ...ROW, patientId: PATIENT_CHART.id, status: 'CONFIRMED', ...overrides }
+  // providerId is a column; ROW carries only the joined provider the wire sees.
+  return {
+    ...ROW,
+    patientId: PATIENT_CHART.id,
+    providerId: PROVIDER.id,
+    status: 'CONFIRMED',
+    ...overrides,
+  }
 }
 
 function cancel(user: StubUser | null, id: string, stub = stubDb({ rows: [row()] })) {
@@ -705,5 +728,87 @@ describe('PATCH /api/appointments/:id/reschedule', () => {
     expect(res.status).toBe(400)
     expect(res.body.error.code).toBe('INVALID_REQUEST')
     expect(res.body.error.message).toContain('providerId')
+  })
+})
+
+// The log is append-only and written inside each service's transaction, so
+// these assert on what the three writing routes appended, not on a read route:
+// nothing serves events yet. `npm run db:events` runs the same claims against
+// real rows, where the transaction is a real one.
+describe('the appointment event log', () => {
+  it('records a booking, with the times it landed on', async () => {
+    const stub = stubDb()
+    await post(PATIENT_USER, VALID, stub.db)
+
+    expect(stub.events).toHaveLength(1)
+    expect(stub.events[0]?.data).toMatchObject({
+      appointmentId: APPOINTMENT_ID,
+      type: 'BOOKED',
+      toStatus: 'CONFIRMED',
+      actorUserId: PATIENT_USER.id,
+      actorRole: 'PATIENT',
+    })
+  })
+
+  it('records a cancellation as a status change', async () => {
+    const stub = stubDb({ rows: [row()] })
+    await cancel(PATIENT_USER, ROW.id, stub).res
+
+    expect(stub.events[0]?.data).toMatchObject({
+      appointmentId: ROW.id,
+      type: 'CANCELLED',
+      fromStatus: 'CONFIRMED',
+      toStatus: 'CANCELLED',
+    })
+  })
+
+  // Asking twice is 200 both times and changes nothing, so it must not leave
+  // two cancellations in a log that is supposed to say what happened.
+  it('does not log the second, idempotent cancellation', async () => {
+    const stub = stubDb({ rows: [row()] })
+    await cancel(PATIENT_USER, ROW.id, stub).res
+    await cancel(PATIENT_USER, ROW.id, stub).res
+
+    expect(stub.events).toHaveLength(1)
+  })
+
+  // The event this table exists for: no status changed, and the time it moved
+  // from is now recorded nowhere else.
+  it('records a move with both halves of the change', async () => {
+    const stub = stubDb({ rows: [row()] })
+    await reschedule(PATIENT_USER, ROW.id, undefined, stub).res
+
+    expect(stub.events[0]?.data).toMatchObject({
+      appointmentId: ROW.id,
+      type: 'RESCHEDULED',
+      fromStartsAt: ROW.startsAt,
+      fromProviderId: PROVIDER.id,
+      toProviderId: PROVIDER.id,
+    })
+    expect((stub.events[0]?.data.toStartsAt as Date).toISOString()).toBe(MOVED_TO)
+    expect(stub.events[0]?.data.toStatus).toBeUndefined()
+  })
+
+  // The front desk acting for a patient is the case the actor column exists to
+  // tell apart: the chart is the patient's, the login is the admin's.
+  it('names the admin, not the patient, when the front desk acts', async () => {
+    const stub = stubDb({ chart: null, rows: [row({ id: HIS, patientId: NAKAMURA_CHART })] })
+    await cancel(ADMIN_USER, HIS, stub).res
+
+    expect(stub.events[0]?.data).toMatchObject({
+      actorUserId: ADMIN_USER.id,
+      actorRole: 'ADMIN',
+    })
+  })
+
+  it('writes nothing when the change was refused', async () => {
+    const completed = stubDb({ rows: [row({ status: 'COMPLETED' })] })
+    await cancel(PATIENT_USER, ROW.id, completed).res
+
+    const stranger = stubDb({ rows: [row({ id: HIS, patientId: NAKAMURA_CHART })] })
+    await reschedule(PATIENT_USER, HIS, undefined, stranger).res
+
+    expect(completed.events).toHaveLength(0)
+    expect(stranger.events).toHaveLength(0)
   })
 })

@@ -18,6 +18,7 @@ import { prisma } from '../src/db'
 import { env } from '../src/env'
 import { auth } from '../src/auth'
 import type { Prisma } from '../generated/prisma/client'
+import { SYSTEM_ACTOR } from '../src/services/appointment-events'
 import { createClinicCalendar, type ClinicDate } from '../src/services/clinic-time'
 
 // ---------------------------------------------------------------------------
@@ -670,6 +671,22 @@ async function main() {
 
   await prisma.appointment.createMany({ data: appointments })
 
+  // Every appointment starts life with the event that created it, so the log is
+  // whole from the first row rather than only from the first API call. SYSTEM,
+  // because nobody booked these — the seed did. Events are not wiped above:
+  // deleting the appointments cascades to them.
+  await prisma.appointmentEvent.createMany({
+    data: appointments.map((appointment) => ({
+      appointmentId: appointment.id as string,
+      type: 'BOOKED' as const,
+      toStatus: 'CONFIRMED' as const,
+      toStartsAt: appointment.startsAt as Date,
+      toProviderId: appointment.providerId,
+      actorUserId: SYSTEM_ACTOR.userId,
+      actorRole: SYSTEM_ACTOR.role,
+    })),
+  })
+
   // --- Report -------------------------------------------------------------
   console.log('Seeded dental_clinic:')
   console.log(`  operatories     ${await prisma.operatory.count()}`)
@@ -681,6 +698,7 @@ async function main() {
   console.log(`  time off        ${await prisma.timeOff.count()}`)
   console.log(`  clinic closures ${await prisma.clinicClosure.count()}`)
   console.log(`  appointments    ${await prisma.appointment.count()}`)
+  console.log(`  events          ${await prisma.appointmentEvent.count()}`)
   console.log('')
   console.log(`Seeded week starts Monday ${iso(monday)} (${env.CLINIC_TIMEZONE}).`)
   console.log(`Raman is off Thursday ${iso(thursday)}; the clinic is shut ${iso(trainingDay)}.`)

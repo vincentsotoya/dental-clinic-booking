@@ -8,14 +8,15 @@ import {
   rescheduleAppointmentResponse,
   type AppointmentWindow,
 } from '@dental/shared'
-import { Router, type RequestHandler } from 'express'
+import { Router, type Request, type RequestHandler } from 'express'
 import type { AuthMiddleware } from '../middleware/auth'
-import { getChartId } from '../middleware/auth-context'
+import { getAuth, getChartId } from '../middleware/auth-context'
 import { getOwnedAppointmentId } from '../middleware/ownership'
 import {
   PATIENT_APPOINTMENT_SELECT,
   toPatientAppointment,
 } from '../services/appointment-view'
+import type { Actor } from '../services/appointment-events'
 import { bookAppointment, type BookingDb } from '../services/booking'
 import { cancelAppointment, type CancellationDb } from '../services/cancellation'
 import { rescheduleAppointment, type ReschedulingDb } from '../services/rescheduling'
@@ -43,6 +44,18 @@ function scope(patientId: string, when: AppointmentWindow, now: Date) {
 
 const bound = (when: AppointmentWindow, now: Date) =>
   when === 'past' ? { lt: now } : { gte: now }
+
+/**
+ * Who is acting, for the event log — the login, not the chart.
+ *
+ * They differ exactly when the front desk works on a patient's behalf, which is
+ * the case the log exists to distinguish. `SYSTEM` never comes from here: a
+ * request always has somebody behind it.
+ */
+const actorOf = (req: Request): Actor => {
+  const { user } = getAuth(req)
+  return { userId: user.id, role: user.role }
+}
 
 export function createAppointmentsRouter(deps: AppointmentsDeps): Router {
   const { db, timeZone, now = () => new Date() } = deps
@@ -76,6 +89,7 @@ export function createAppointmentsRouter(deps: AppointmentsDeps): Router {
 
     const appointment = await bookAppointment(db, {
       patientId: getChartId(req),
+      actor: actorOf(req),
       serviceSlug: body.service,
       providerId: body.providerId,
       startsAt: new Date(body.startsAt),
@@ -100,6 +114,7 @@ export function createAppointmentsRouter(deps: AppointmentsDeps): Router {
   router.patch('/appointments/:id/cancel', deps.requireOwnership, async (req, res) => {
     const appointment = await cancelAppointment(db, {
       appointmentId: getOwnedAppointmentId(req),
+      actor: actorOf(req),
       now: now(),
     })
 
@@ -118,6 +133,7 @@ export function createAppointmentsRouter(deps: AppointmentsDeps): Router {
 
     const appointment = await rescheduleAppointment(db, {
       appointmentId: getOwnedAppointmentId(req),
+      actor: actorOf(req),
       providerId: body.providerId,
       startsAt: new Date(body.startsAt),
       timeZone,

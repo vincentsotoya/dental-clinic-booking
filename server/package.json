@@ -16,7 +16,8 @@
     "db:authz": "tsx scripts/check-authz.ts",
     "db:booking": "tsx scripts/check-booking.ts",
     "db:cancel": "tsx scripts/check-cancel.ts",
-    "db:reschedule": "tsx scripts/check-reschedule.ts"
+    "db:reschedule": "tsx scripts/check-reschedule.ts",
+    "db:events": "tsx scripts/check-events.ts"
   },
   "dependencies": {
     "@dental/shared": "*",

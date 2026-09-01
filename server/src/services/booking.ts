@@ -30,6 +30,7 @@
 
 import type { Prisma, PrismaClient } from '../../generated/prisma/client'
 import { ApiError } from '../errors'
+import { type Actor, recordAppointmentEvent } from './appointment-events'
 import type { AvailabilityDb } from './availability-query'
 import { findAvailability } from './availability-query'
 import { createClinicCalendar } from './clinic-time'
@@ -40,6 +41,8 @@ export type BookingDb = AvailabilityDb & Pick<PrismaClient, '$transaction'>
 export type BookingRequest = {
   /** From the session, never the body — ADR-0007. */
   patientId: string
+  /** Who is booking. The chart is whose it is; this is who acted. */
+  actor: Actor
   serviceSlug: string
   providerId: string
   /** The exact instant an offered slot started at. */
@@ -94,7 +97,16 @@ export async function bookAppointment(
   db: BookingDb,
   request: BookingRequest,
 ): Promise<BookingResult> {
-  const { patientId, serviceSlug, providerId, startsAt, notes, timeZone, now = new Date() } = request
+  const {
+    patientId,
+    actor,
+    serviceSlug,
+    providerId,
+    startsAt,
+    notes,
+    timeZone,
+    now = new Date(),
+  } = request
 
   // Which day's working hours apply is a question about the clinic's calendar,
   // not the server's or the caller's.
@@ -153,6 +165,18 @@ export async function bookAppointment(
           notes,
         },
         select: { id: true, startsAt: true, endsAt: true, notes: true },
+      })
+
+      // Inside the same transaction as the insert: an appointment with no
+      // record of being booked, or a record of a booking that rolled back, are
+      // both worse than the round trip.
+      await recordAppointmentEvent(tx, {
+        appointmentId: created.id,
+        actor,
+        type: 'BOOKED',
+        toStatus: 'CONFIRMED',
+        toStartsAt: slot.startsAt,
+        toProviderId: slot.providerId,
       })
 
       return {

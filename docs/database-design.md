@@ -104,3 +104,38 @@ is stored. Always set the zone you mean:
 SET TimeZone='America/New_York';   -- what the clinic sees
 SET TimeZone='UTC';                -- what is actually on disk
 ```
+
+## Appointment events
+
+`appointment_events` is append-only: one row per thing that happened to an appointment, written
+inside the transaction that made the change. Not a status history — a reschedule changes no status
+and is the event with the most to record, since the appointment row keeps only where it is now and
+the time it moved *from* survives nowhere else.
+
+| Column | Purpose |
+|---|---|
+| `type` | `BOOKED`, `CANCELLED`, `RESCHEDULED`, `COMPLETED`, `NO_SHOW` |
+| `from_status` / `to_status` | The transition, when there is one. Both null on a move. |
+| `from_starts_at` / `to_starts_at` | Set on a move. The only record of the original time. |
+| `from_provider_id` / `to_provider_id` | Same, for a move that changes provider. |
+| `actor_user_id` / `actor_role` | Who did it. `SYSTEM` is the seed, and has no user. |
+
+`ON DELETE CASCADE` from the appointment: an event describes one appointment and means nothing
+without it. `ON DELETE SET NULL` from the login: deleting an account forgets *who* acted, never
+*what* happened.
+
+A CHECK requires at least one of `from_status`, `to_status` or `to_starts_at`, so a row cannot
+say merely that something occurred.
+
+## A hazard in every future migration
+
+Two foreign keys are hand-written, because both point at Better Auth's `user` table and the other
+half of a Prisma relation would be a field on a model `npx auth generate` rewrites (ADR-0006):
+
+- `patients.user_id` → `user.id`
+- `appointment_events.actor_user_id` → `user.id`
+
+Prisma cannot see them, so it reads them as drift and **emits a `DROP CONSTRAINT` for them in
+every migration it generates**. Delete those lines by hand. Keeping one would silently remove the
+rule that stops a chart, or an event, pointing at a login that no longer exists — and nothing in
+the test suite would notice, because the columns would still hold the same values.

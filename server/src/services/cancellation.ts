@@ -20,6 +20,7 @@
 
 import type { Prisma, PrismaClient } from '../../generated/prisma/client'
 import { ApiError } from '../errors'
+import { type Actor, recordAppointmentEvent } from './appointment-events'
 import { refusalToChange } from './appointment-state'
 import { type AppointmentRow, PATIENT_APPOINTMENT_SELECT } from './appointment-view'
 
@@ -28,6 +29,8 @@ export type CancellationDb = Pick<PrismaClient, 'appointment' | '$transaction'>
 export type CancellationRequest = {
   /** From `requireOwnership`, which has already settled whether this caller may. */
   appointmentId: string
+  /** The patient, or the front desk doing it for them. The log keeps which. */
+  actor: Actor
   now?: Date
 }
 
@@ -48,11 +51,11 @@ export async function cancelAppointment(
   db: CancellationDb,
   request: CancellationRequest,
 ): Promise<AppointmentRow> {
-  const { appointmentId, now = new Date() } = request
+  const { appointmentId, actor, now = new Date() } = request
 
-  // One transaction for the read, the write and the row that gets sent back,
-  // so a response cannot describe a different state from the one written. It
-  // is also the seam `AppointmentStatusHistory` slots into.
+  // One transaction for the read, the write, the event and the row that gets
+  // sent back, so a response cannot describe a different state from the one
+  // written and no cancellation can happen unlogged.
   return db.$transaction(async (tx: Prisma.TransactionClient) => {
     const read = async () =>
       tx.appointment.findUnique({
@@ -73,7 +76,19 @@ export async function cancelAppointment(
       data: { status: 'CANCELLED' },
     })
 
-    if (count === 1) return { ...found, status: 'CANCELLED' as const }
+    if (count === 1) {
+      // Only on the write that actually changed something. The idempotent
+      // return above writes nothing, or asking twice would log twice.
+      await recordAppointmentEvent(tx, {
+        appointmentId,
+        actor,
+        type: 'CANCELLED',
+        fromStatus: 'CONFIRMED',
+        toStatus: 'CANCELLED',
+      })
+
+      return { ...found, status: 'CANCELLED' as const }
+    }
 
     // Somebody wrote first. Each statement takes a fresh snapshot at READ
     // COMMITTED, so this read sees what they committed — answer from what is

@@ -54,6 +54,27 @@ enum AppointmentStatus {
   NO_SHOW
 }
 
+/// One per thing that can happen to an appointment. RESCHEDULED is not a status
+/// change, which is precisely why this is a log of events and not of statuses.
+
+enum AppointmentEventType {
+  BOOKED
+  CANCELLED
+  RESCHEDULED
+  COMPLETED
+  NO_SHOW
+}
+
+/// SYSTEM is the seed, and any later job — an event with no person behind it.
+/// A real Prisma enum, unlike User.role, because nothing regenerates this file's
+/// own models (ADR-0006).
+
+enum ActorRole {
+  PATIENT
+  ADMIN
+  SYSTEM
+}
+
 enum Weekday {
   MONDAY
   TUESDAY
@@ -292,10 +313,50 @@ model Appointment {
   service   Service   @relation(fields: [serviceId], references: [id], onDelete: Restrict)
   operatory Operatory @relation(fields: [operatoryId], references: [id], onDelete: Restrict)
 
+  events AppointmentEvent[]
+
   @@index([patientId, startsAt])
   @@index([providerId, startsAt])
   @@index([status, startsAt])
   @@map("appointments")
+}
+
+/// What happened to an appointment, and who did it.
+///
+/// Append-only: every row is written inside the transaction that makes the
+/// change, and none is ever updated. The appointment itself carries only its
+/// current state, so this is the only place the time a booking moved *from*
+/// survives.
+
+model AppointmentEvent {
+  id            String               @id @default(uuid()) @db.Uuid
+  appointmentId String               @map("appointment_id") @db.Uuid
+  type          AppointmentEventType
+
+  /// Null on BOOKED: there was no status before it existed.
+  fromStatus AppointmentStatus? @map("from_status")
+  /// Null on RESCHEDULED: a move changes times, not status.
+  toStatus   AppointmentStatus? @map("to_status")
+
+  /// Both set on RESCHEDULED. On BOOKED only the "to" half means anything.
+  fromStartsAt   DateTime? @map("from_starts_at") @db.Timestamptz(6)
+  toStartsAt     DateTime? @map("to_starts_at") @db.Timestamptz(6)
+  fromProviderId String?   @map("from_provider_id") @db.Uuid
+  toProviderId   String?   @map("to_provider_id") @db.Uuid
+
+  /// TEXT, and a plain column rather than a relation: user ids are minted by
+  /// Better Auth, and the other half of a relation would be a field on the
+  /// regenerated User. The FK is hand-written, ON DELETE SET NULL — deleting a
+  /// login must not erase the record of what that person did.
+  actorUserId String?   @map("actor_user_id")
+  actorRole   ActorRole @map("actor_role")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId, createdAt])
+  @@map("appointment_events")
 }
 
 model User {
@@ -350,9 +411,9 @@ model Account {
 
   issuer String
 
+  @@unique([issuer, accountId], map: "account_issuer_accountId_uidx")
   @@index([userId])
   @@map("account")
-  @@unique([issuer, accountId], map: "account_issuer_accountId_uidx")
 }
 
 model Verification {

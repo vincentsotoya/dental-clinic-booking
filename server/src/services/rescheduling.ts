@@ -6,9 +6,9 @@
 // It is one UPDATE instead, because the appointment is the same commitment at a
 // different hour: the id in a confirmation link stays valid, and the patient's
 // list shows one booking rather than a cancellation they never asked for. The
-// cost is that the original time is not kept anywhere — `AppointmentStatusHistory`
-// is where that belongs, and a move is the reason that table needs to record
-// more than a status.
+// row therefore keeps only where it is now, and the time it came from survives
+// only in `appointment_events` — a move is the reason that log records events
+// rather than status changes.
 //
 // WHY THE ROW BEING MOVED IS EXCLUDED FROM ITS OWN RE-CHECK
 //
@@ -34,6 +34,7 @@
 
 import type { Prisma, PrismaClient } from '../../generated/prisma/client'
 import { ApiError } from '../errors'
+import { type Actor, recordAppointmentEvent } from './appointment-events'
 import { refusalToChange } from './appointment-state'
 import { type AppointmentRow, PATIENT_APPOINTMENT_SELECT } from './appointment-view'
 import { type AvailabilityDb, findAvailability } from './availability-query'
@@ -46,6 +47,8 @@ export type ReschedulingDb = AvailabilityDb & Pick<PrismaClient, '$transaction'>
 export type RescheduleRequest = {
   /** From `requireOwnership`, which has already settled whether this caller may. */
   appointmentId: string
+  /** The patient, or the front desk moving it for them. The log keeps which. */
+  actor: Actor
   providerId: string
   /** The exact instant an offered slot started at. */
   startsAt: Date
@@ -69,7 +72,7 @@ export async function rescheduleAppointment(
   db: ReschedulingDb,
   request: RescheduleRequest,
 ): Promise<AppointmentRow> {
-  const { appointmentId, providerId, startsAt, timeZone, now = new Date() } = request
+  const { appointmentId, actor, providerId, startsAt, timeZone, now = new Date() } = request
 
   // Which day's working hours apply is a question about the clinic's calendar,
   // not the server's or the caller's.
@@ -80,7 +83,12 @@ export async function rescheduleAppointment(
       where: { id: appointmentId },
       // The service comes from the row, never the body: moving an appointment
       // may not quietly turn a thirty-minute exam into a ninety-minute crown.
-      select: { status: true, startsAt: true, service: { select: { slug: true } } },
+      select: {
+        status: true,
+        startsAt: true,
+        providerId: true,
+        service: { select: { slug: true } },
+      },
     })
 
     if (!found) throw new ApiError('NOT_FOUND', NO_SUCH_APPOINTMENT)
@@ -88,7 +96,6 @@ export async function rescheduleAppointment(
     // Cancel treats this as the state the caller wanted; here it is a refusal.
     // Reviving a cancelled appointment by moving it would put a slot released an
     // hour ago back on the books without passing through booking.
-
     if (found.status === 'CANCELLED') throw new ApiError('NOT_RESCHEDULABLE', WAS_CANCELLED)
 
     const reason = refusalToChange(found, now)
@@ -144,6 +151,19 @@ export async function rescheduleAppointment(
 
         throw new ApiError('NOT_RESCHEDULABLE', refusalToChange(after, now) ?? CHANGED)
       }
+
+      // The event this whole table exists for. `found` still holds the values
+      // the UPDATE has just overwritten, and after this transaction commits
+      // they survive nowhere else.
+      await recordAppointmentEvent(tx, {
+        appointmentId,
+        actor,
+        type: 'RESCHEDULED',
+        fromStartsAt: found.startsAt,
+        toStartsAt: slot.startsAt,
+        fromProviderId: found.providerId,
+        toProviderId: slot.providerId,
+      })
     } catch (error) {
       // A move can lose the same race a booking can — and to a booking, since
       // both end up as one index entry on one operatory.
