@@ -3,7 +3,11 @@
   "compilerOptions": {
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "types": ["vite/client", "node"]
+    "types": ["vite/client", "node"],
+    // shadcn generates every import as `@/…`. TypeScript 7 removed `baseUrl`,
+    // so these resolve relative to this file. The same alias is repeated in
+    // vite.config.ts and vitest.config.ts, and all three have to agree.
+    "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts", "vitest.config.ts"]
 }

@@ -42,5 +42,5 @@ export function RequireAuth({ roles }: Props) {
  * spinner that appears and vanishes that fast reads as a flicker.
  */
 function PendingSession() {
-  return <div className="min-h-dvh bg-ground" aria-busy="true" aria-live="polite" />
+  return <div className="min-h-dvh bg-background" aria-busy="true" aria-live="polite" />
 }

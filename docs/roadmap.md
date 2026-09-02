@@ -100,7 +100,9 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
       `client/src/index.css`, reasoning in `docs/design-system.md`
 - [x] **(S)** `/impeccable init` → `PRODUCT.md`. Moved ahead of the components: it captures product
       truth, and capturing it after nine components exist means retrofitting them
-- [ ] **(S)** `/pick-ui-library`
+- [x] **(C)** UI library settled: **shadcn/ui**, decided directly rather than by the skill, which
+      is not installed. Its names became the utility vocabulary and the Cobalt & Cream values were
+      adapted onto them in one place — ADR-0009
 - [x] **(C)** Typed API client + TanStack Query — responses parsed through the shared schemas,
       not cast; errors arrive as a typed `ApiRequestError` narrowed per endpoint
 - [x] **(C)** Session hook over `GET /api/me` + protected routes — React Router v8, and a session

@@ -24,13 +24,13 @@ export default function MyAppointments() {
   const signOut = useSignOut()
 
   return (
-    <main className="min-h-dvh bg-ground p-6 text-ink">
+    <main className="min-h-dvh bg-background p-6 text-foreground">
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
         <header className="flex items-baseline justify-between gap-4">
           <div>
             <h1 className="font-display text-xl font-semibold">Your appointments</h1>
             {session.status === 'authenticated' && (
-              <p className="mt-1 text-sm text-muted">
+              <p className="mt-1 text-sm text-muted-foreground">
                 {session.user.firstName} {session.user.lastName}
                 {session.patient === null && ' — no chart on this account'}
               </p>
@@ -39,31 +39,31 @@ export default function MyAppointments() {
           <button
             type="button"
             onClick={() => void signOut()}
-            className="rounded-pill border border-edge px-4 py-2 text-sm font-medium active:translate-y-px"
+            className="rounded-pill border border-border px-4 py-2 text-sm font-medium active:translate-y-px"
           >
             Sign out
           </button>
         </header>
 
-        {appointments.isPending && <p className="text-sm text-muted">Loading&hellip;</p>}
+        {appointments.isPending && <p className="text-sm text-muted-foreground">Loading&hellip;</p>}
 
         {appointments.isError && (
-          <p className="text-sm text-accent">{appointments.error.message}</p>
+          <p className="text-sm text-destructive">{appointments.error.message}</p>
         )}
 
         {appointments.data?.appointments.length === 0 && (
-          <p className="text-sm text-muted">Nothing booked. Booking is the next screen.</p>
+          <p className="text-sm text-muted-foreground">Nothing booked. Booking is the next screen.</p>
         )}
 
         <ul className="flex flex-col gap-2">
           {appointments.data?.appointments.map((appointment) => (
             <li
               key={appointment.id}
-              className="flex items-baseline justify-between gap-4 rounded-card border border-edge bg-surface p-4"
+              className="flex items-baseline justify-between gap-4 rounded-card border border-border bg-card p-4"
             >
               <div>
                 <p className="font-medium">{appointment.service.name}</p>
-                <p className="text-sm text-muted">
+                <p className="text-sm text-muted-foreground">
                   {appointment.provider.title
                     ? `${appointment.provider.firstName} ${appointment.provider.lastName}, ${appointment.provider.title}`
                     : `${appointment.provider.firstName} ${appointment.provider.lastName}`}
@@ -71,7 +71,7 @@ export default function MyAppointments() {
               </div>
               <div className="text-right">
                 <p className="text-sm tabular-nums">{when.format(new Date(appointment.startsAt))}</p>
-                <p className="text-sm text-muted">{appointment.status.toLowerCase()}</p>
+                <p className="text-sm text-muted-foreground">{appointment.status.toLowerCase()}</p>
               </div>
             </li>
           ))}

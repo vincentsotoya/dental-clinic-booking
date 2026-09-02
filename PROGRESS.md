@@ -194,13 +194,27 @@ event log inside the transaction that made it.
 - [x] 🎯 Falsified: delete the `loading` branch and the guard redirects a patient whose session has
       not resolved yet
 
+- [x] UI library settled: **shadcn/ui**. `components.json` and `lib/utils.ts` written by hand so
+      `init` never rewrites `index.css`; `@/` aliased in `tsconfig` / `vite` / `vitest`
+- [x] The token adapter — `@theme inline` publishes Cobalt & Cream under shadcn's names, so a
+      generated component is correct without being edited. 13 components installed — ADR-0009
+- [x] `danger` enters the palette for destructive actions only, measured like the rest
+- [x] 🎯 Proven in the built CSS, not asserted: `.text-primary-foreground{color:var(--accent-ink)}`
+      and the dark block sets `--accent-ink:#121316`, so a `<Button>` label is dark in dark mode
+      automatically. `dark:` compiled to `@media (prefers-color-scheme:dark)` with zero `.dark`
+      selectors, confirming no `@custom-variant` was needed
+- [x] 🎯 The loop still runs over both dev servers through the rebuilt `SignIn`: sign-in 200,
+      `/api/me` resolves Marsh's chart, her 5 appointments come back, deep link serves the SPA
+- [x] 🎯 Falsified: `ui-invariants.test.ts` guards the four adaptations against
+      `shadcn add --overwrite`. Regenerating `button.tsx` from the registry turns five red
+
 ## Current Task
 
-- [ ] **(S)** `/pick-ui-library` — the last decision before pages get written
+- [ ] **(V)** Home, Services and Dentists pages
 
 ## Next
 
-- [ ] **(V)** Home, Services and Dentists, then the booking flow
+- [ ] **(V)** Booking flow: ServicePicker → DentistPicker → Calendar → SlotGrid → Confirm
 
 ## Active Blockers
 
@@ -208,6 +222,32 @@ event log inside the transaction that made it.
 
 ## Recent Decisions
 
+- **shadcn's names won, not the design system's.** Its components are generated against
+  `bg-primary` / `text-muted-foreground`, and two names collided outright — its `accent` is a
+  hover fill, its `muted` is a background. Adapting in `@theme inline` means every future
+  `shadcn add` drops in already correct; adapting per component would be a manual translation
+  forever, with a silent failure when one class is missed — ADR-0009
+- **The adapter made the AA rule self-enforcing, and immediately caught a real bug.** The generated
+  `button.tsx` and `badge.tsx` both shipped `bg-destructive text-white`, which is 2.79:1 on the
+  dark-mode red — the exact failure `design-system.md` warns about, arriving pre-written
+- **`outline-none` was the dangerous one.** It sits in Tailwind's utilities layer, ordered after
+  base, so a generated `<Button>` would have silently disabled the project's only focus indicator
+  while passing every type check. Stripped everywhere, with one exception: `calendar.tsx`'s
+  dropdown, where the focused element is a `<select>` at `opacity-0`
+- **No `.dark` class and no `@custom-variant dark`.** The page follows `prefers-color-scheme`,
+  so leaving `dark:` at Tailwind's default is what makes the variants inside a generated component
+  resolve at all. Adding the variant without a `.dark` class would make them dead code
+- **`danger` is the one exception to "one accent"**, and only for destructive actions. Cancelling
+  an appointment is a real one and Phase 6 builds it. `danger-ink` is dark in dark mode for the
+  same measured reason `accent-ink` is
+- `sonner.tsx` arrived importing `next-themes`. With no theme provider the answer is always
+  `system`, and a dependency that computes a constant is not one — removed
+- The invariants are asserted **against the component files, not a rendered tree**. The regression
+  is `shadcn add --overwrite` putting the generator's version back, and that is damage to what the
+  class strings say, which no render test would see
+- TypeScript 7 **removed `baseUrl`**; `paths` now resolve relative to the tsconfig that declares
+  them. The alias is duplicated in `vitest.config.ts` rather than shared — the file tests load, and
+  the one that gets forgotten
 - **A session has three states, not two.** `loading` is distinct from `anonymous` for the same
   reason `req.auth` is three-valued on the server (ADR-0008): collapsing them makes the guard
   bounce a signed-in patient to sign-in and back on every cold load. Proven by deleting the branch
@@ -484,6 +524,6 @@ event log inside the transaction that made it.
 - Postgres enforces no-double-booking via `EXCLUDE USING gist` — see ADR-0001
 - Development runs on local Postgres 17; hosted Neon deferred to Phase 11
 - Prisma pinned to the 7.x line — `prisma`'s `latest` tag is an 8.0 release candidate
-- `npm audit` reports 3 high (deepmerge-ts) via the Prisma **CLI**, a devDependency. Not fixed:
-  the only fix downgrades to Prisma 6. Dev-time only, no untrusted input. Revisit when Prisma
-  ships a patched `@prisma/config`.
+- `npm audit` reports 4 high — `deepmerge-ts` and `mysql2`, both via the Prisma **CLI**, a
+  devDependency. Nothing shadcn brought. Not fixed: the only fix downgrades to Prisma 6. Dev-time
+  only, no untrusted input. Revisit when Prisma ships a patched `@prisma/config`.
