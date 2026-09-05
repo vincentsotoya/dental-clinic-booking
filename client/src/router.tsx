@@ -15,6 +15,7 @@ import Home from './routes/Home'
 import Services from './routes/Services'
 import Dentists from './routes/Dentists'
 import MyAppointments from './routes/MyAppointments'
+import NotFound from './routes/NotFound'
 import SignIn from './routes/SignIn'
 
 export const router = createBrowserRouter([
@@ -24,6 +25,8 @@ export const router = createBrowserRouter([
       { path: '/', element: <Home /> },
       { path: '/services', element: <Services /> },
       { path: '/dentists', element: <Dentists /> },
+      // Last, and public: an unknown URL is not a reason to ask who someone is.
+      { path: '*', element: <NotFound /> },
     ],
   },
   { path: '/sign-in', element: <SignIn /> },
