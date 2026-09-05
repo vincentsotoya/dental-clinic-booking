@@ -140,3 +140,13 @@
     }
   }
 }
+
+/* A scroll container the design still wants to look calm. The row is scrolled
+ * by drag, wheel or keyboard and its edge is already visible from the cards
+ * running off it, so the bar itself is the only thing hidden. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
