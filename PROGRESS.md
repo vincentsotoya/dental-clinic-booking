@@ -208,9 +208,16 @@ event log inside the transaction that made it.
 - [x] 🎯 Falsified: `ui-invariants.test.ts` guards the four adaptations against
       `shadcn add --overwrite`. Regenerating `button.tsx` from the registry turns five red
 
+- [x] **(C)** Home, Services and Dentists — three routes under `PublicLayout`, floating nav with
+      the active route marked by `NavLink`, provider strip with monograms in place of portraits
+- [x] **(C)** `vercel.json` — SPA rewrite, root-scoped install, `client/dist`. The three pages
+      need no API and deploy today; auth and appointments are dead until Phase 11 hosts the rest
+
 ## Current Task
 
-- [ ] **(V)** Home, Services and Dentists pages
+- [ ] **(C)** `GET /api/services` and `GET /api/providers` — public, read-only, zod schemas in
+      `shared`. Until they exist both pages read `client/src/content/preview-data.ts`, which is a
+      hand-transcribed photocopy of the seed and will drift from it
 
 ## Next
 
@@ -218,10 +225,27 @@ event log inside the transaction that made it.
 
 ## Active Blockers
 
-- None
+- **The accent hue is unsettled.** Two reference sites pointed away from cobalt; all three
+  candidates were measured and none is disqualified on contrast. Cobalt ships until it is decided,
+  and the decision is one edit to `index.css`
 
 ## Recent Decisions
 
+- **The nav's shape came out of measurement, not taste.** Its fill is 1.04:1 against the page, so
+  the border and shadow are what make it read at all; links stay at full ink because `muted` over
+  a photographic backdrop is 2.95:1, which leaves the active pill carrying the state alone
+- **`backdrop-blur` is set and currently invisible.** There is nothing behind the bar to blur, so
+  it renders solid on flat cream. The alpha is capped where the worst-case composite — over pure
+  black or pure white — still clears AA, so a photographic hero later needs no change here
+- Active state is `accent-soft`, the token whose documented job is "a selected slot or an active
+  step", and `NavLink` sets `aria-current` itself — the fill and the announcement cannot disagree
+- **Monograms, not portraits.** `PRODUCT.md` forbids captioning a stock face with a fictional
+  provider's name. Initials are a placeholder for commissioned illustration, never a stock face
+- `/dentists` is a grid though Home uses the strip. On the page whose job is showing all five,
+  putting three behind a horizontal scroll hides the answer; the strip's real second home is the
+  booking flow's provider step
+- **Deployed before the booking flow exists, and the page says so.** A visitor who discovers it by
+  pressing the button and landing back where they started concludes booking is broken, not absent
 - **shadcn's names won, not the design system's.** Its components are generated against
   `bg-primary` / `text-muted-foreground`, and two names collided outright — its `accent` is a
   hover fill, its `muted` is a background. Adapting in `@theme inline` means every future
