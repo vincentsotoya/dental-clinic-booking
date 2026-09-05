@@ -231,6 +231,18 @@ event log inside the transaction that made it.
 
 ## Recent Decisions
 
+- **A nav link went missing on a phone, and nothing said so.** The link row scrolled with the
+  scrollbar suppressed, so `Dentists` slid off a narrow screen with no affordance at all. The
+  scrollbar is visible now: overflow is the fallback, and a fallback that cannot be seen is a bug
+- **Two controls, one destination.** The `Treatments` button and the `Services` link both pointed
+  at `/services` after the rename, and the button took roughly the width the third link needed.
+  Deleting it is most of the fix — a real primary action returns when booking has somewhere
+  distinct to go
+- The wordmark drops `Dental` below `sm` for the same reason: the second word costs about what the
+  third link needs, and a brand that shortens beats a page that cannot be reached
+- **Light on a laptop and dark on a phone is correct, not a bug.** The page follows
+  `prefers-color-scheme` with no toggle (ADR-0009) and both palettes are measured. A later session
+  should not "fix" this
 - **The nav's shape came out of measurement, not taste.** Its fill is 1.04:1 against the page, so
   the border and shadow are what make it read at all; links stay at full ink because `muted` over
   a photographic backdrop is 2.95:1, which leaves the active pill carrying the state alone

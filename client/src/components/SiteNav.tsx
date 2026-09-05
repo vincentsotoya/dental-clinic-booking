@@ -24,7 +24,7 @@ export function SiteNav() {
       <nav
         aria-label="Main"
         className={cn(
-          'mx-auto flex max-w-6xl items-center gap-3 rounded-pill border border-border py-2 pr-2 pl-4 sm:pl-5',
+          'mx-auto flex max-w-6xl items-center gap-2 rounded-pill border border-border py-2 pr-2 pl-4 sm:gap-3 sm:pl-5',
           // Alpha capped where the worst-case composite still clears AA, so the
           // bar stays legible if a photographic hero is ever put behind it.
           'bg-card/80 shadow-sm backdrop-blur-lg',
@@ -32,14 +32,19 @@ export function SiteNav() {
       >
         <Link
           to="/"
-          className="font-display shrink-0 text-lg font-bold tracking-tight sm:text-xl"
+          className="font-display shrink-0 text-base font-bold tracking-tight sm:text-xl"
         >
-          Quillon<span className="text-primary">Dental</span>
+          {/* "Dental" is the first thing to go on a narrow screen: the second
+              word costs ~55px, which is roughly what the third link needs, and
+              a brand that shortens is better than a page you cannot reach. */}
+          Quillon<span className="hidden text-primary sm:inline">Dental</span>
         </Link>
 
-        {/* Scrolls rather than wraps on narrow screens: a nav that changes
-            height moves the page under it. */}
-        <ul className="scrollbar-none mx-auto flex min-w-0 items-center gap-1 overflow-x-auto">
+        {/* Every link fits at 320px, so scrolling is the fallback and not the
+            plan. The scrollbar is deliberately left visible: a link that has
+            gone off the edge has to say so, which is exactly what this
+            container failed to do when it hid one on a phone. */}
+        <ul className="mx-auto flex min-w-0 items-center gap-1 overflow-x-auto">
           {LINKS.map((link) => (
             <li key={link.to}>
               <NavLink
@@ -47,7 +52,7 @@ export function SiteNav() {
                 end={link.end}
                 className={({ isActive }) =>
                   cn(
-                    'block rounded-pill px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-colors sm:px-4',
+                    'block rounded-pill px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors sm:px-4',
                     // NavLink also sets aria-current, so the fill and the
                     // announcement cannot disagree.
                     isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/60',
@@ -60,22 +65,22 @@ export function SiteNav() {
           ))}
         </ul>
 
-        <div className="flex shrink-0 items-center gap-2">
+        {/* Desktop only, and the whole group rather than each button: on a
+            phone this would otherwise be an empty flex item still taking a gap.
+            Sign-in stays reachable from the footer at every width. */}
+        <div className="hidden shrink-0 items-center gap-2 sm:flex">
           {/* `loading` renders neither branch: showing "Sign in" first and
               swapping it a moment later is the flash ADR-0008 exists to avoid. */}
           {session.status === 'anonymous' && (
-            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+            <Button asChild variant="ghost" size="sm">
               <Link to="/sign-in">Sign in</Link>
             </Button>
           )}
           {session.status === 'authenticated' && (
-            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+            <Button asChild variant="ghost" size="sm">
               <Link to="/appointments">My appointments</Link>
             </Button>
           )}
-          <Button asChild size="sm" className="rounded-pill">
-            <Link to="/services">Treatments</Link>
-          </Button>
         </div>
       </nav>
     </header>
