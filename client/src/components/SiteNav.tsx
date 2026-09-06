@@ -81,6 +81,12 @@ export function SiteNav() {
               <Link to="/appointments">My appointments</Link>
             </Button>
           )}
+
+          {/* The primary action, back after being deleted for pointing at the
+              same place as a link beside it. It now has somewhere of its own. */}
+          <Button asChild size="sm" className="rounded-pill">
+            <Link to="/book">Book</Link>
+          </Button>
         </div>
       </nav>
     </header>

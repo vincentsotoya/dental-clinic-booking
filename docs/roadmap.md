@@ -110,8 +110,10 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
 - [x] **(V)** Home, Services, Dentists pages
 - [x] **(C)** `GET /api/services` and `GET /api/providers` — the public catalogue, and the end of
       the transcribed preview data the three pages were reading
-- [ ] **(V)** Booking flow: ServicePicker → DentistPicker → Calendar → SlotGrid → Confirm
-- [ ] **(V)** Handle `SLOT_TAKEN` 409 gracefully — refetch and explain
+- [x] **(C)** Booking flow: ServicePicker → DentistPicker → Calendar → SlotGrid → Confirm.
+      The whole booking lives in the URL, so the step is derived rather than stored
+- [x] **(C)** Handle `SLOT_TAKEN` 409 gracefully — refetch and explain. Done with the confirm
+      step, which is the only screen that can lose the race
 - [ ] **(V)** Signup and login screens
 - [ ] **(S)** `/impeccable critique`, then `/review-animations` — both are review passes and stay
       here, after there is something built to review

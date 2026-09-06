@@ -47,19 +47,12 @@ export default function Home() {
 
         <div className="mt-9 flex flex-wrap items-center gap-3">
           <Button asChild size="lg" className="rounded-pill">
-            <Link to="/services">See our treatments</Link>
+            <Link to="/book">Book an appointment</Link>
           </Button>
           <Button asChild variant="outline" size="lg" className="rounded-pill">
-            <Link to="/dentists">Meet the team</Link>
+            <Link to="/services">See our treatments</Link>
           </Button>
         </div>
-
-        {/* Deployed before the booking flow exists. Saying so is cheaper than a
-            visitor discovering it by pressing the button. */}
-        <p className="mt-4 text-sm text-muted-foreground">
-          Choosing a time online is still being built — the treatment list and the team are ready
-          to browse now.
-        </p>
 
         <dl className="mt-14 grid max-w-3xl grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-4">
           {/* An em dash while the count is unknown: a "0" that resolves to "5" a

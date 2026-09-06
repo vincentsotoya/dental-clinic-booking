@@ -66,20 +66,46 @@ Phase 5, in progress:
 - [x] 🎯 Falsified: drop `where: { isActive: true }` and a retired treatment is offered again.
       Widening the `select` did *not* leak `bufferMins` — the parse strips it, which corrected the
       claim the route's comment was making
+- [x] **(C)** Booking flow — `client/src/booking/`, route `/book` under `PublicLayout`. Five
+      steps, one availability request per month, and the whole booking in the URL. Public until
+      the last step: availability is public, so a visitor reaches a real time before being asked
+      who they are. **Was marked (V)** — see Active Blockers
+- [x] **(C)** Both 409s handled in the confirm step, which is the only screen that can lose the
+      race. `SLOT_UNAVAILABLE` is the common one; `SLOT_TAKEN` is the true constraint race
+- [x] `client/src/lib/clinic-time.ts` — every slot rendered in the clinic's zone, every calendar
+      date built at local midnight so it never round-trips through UTC
+- [x] 🎯 34 tests over the flow: the URL state machine through a real router, the slot algebra,
+      and the whole flow driven over a stubbed `fetch` so the real query keys, `request()` and
+      schema parsing all run. Falsified: stop clearing downstream answers and changing the
+      treatment keeps a slot chosen for a different one
+- [x] 🎯 The flow's exact payload against real Postgres: 201 with the note, the same instant again
+      answers 409 `SLOT_UNAVAILABLE`, cancel cleans up. The dev machine's zone renders that 8:30am
+      slot as 9:30pm, which is the bug `clinic-time.ts` exists to prevent, seen live
 
 ## Current Task
 
-- [ ] **(V)** Booking flow: ServicePicker → DentistPicker → Calendar → SlotGrid → Confirm
+- [ ] **(V)** Signup and login screens — `SignIn.tsx` is still the labelled stand-in
 
 ## Next
 
-- [ ] **(V)** Handle `SLOT_TAKEN` 409 gracefully — refetch and explain
+- [ ] **(S)** `/impeccable critique`, then `/review-animations` — the review passes, now that
+      there is something built to review
 
 ## Active Blockers
 
 - **The accent hue is unsettled.** Two reference sites pointed away from cobalt; all three
   candidates were measured and none is disqualified on contrast. Cobalt ships until it is decided,
   and the decision is one edit to `index.css`
+- **The booking flow was a (V) task and Claude wrote it.** It is uncommitted and confined to
+  `client/src/booking/`, so it can be thrown away cheaply, or the roadmap's remaining **(V)** items
+  can be reassigned. The router choice in `docs/decisions-log.md` leaned on this being yours
+- **The interaction design was meant to come first.** A recorded decision says how picking a slot
+  *feels* is its own session before these components are written, because the design skill covers
+  marketing surfaces and excludes wizards. What exists inherits the tokens and no composition
+  advice; `/impeccable critique` is the roadmap's answer and is still ahead
+- **A month of availability is 352KB uncompressed** for a popular service — 1,482 slots, of which
+  the calendar needs only the 20 distinct dates. Tolerable gzipped, and the fix is a days-only
+  projection on the server rather than anything on the client
 - **The deployed site now needs an API that is not deployed.** The three public pages read the
   catalogue rather than a transcript, so on Vercel they render their copy, their skeletons and
   then "We couldn't load our treatments". Phase 11 hosting the server clears it; until then the
@@ -87,6 +113,34 @@ Phase 5, in progress:
 
 ## Recent Decisions
 
+- **The booking is the URL, and the step is derived from it.** A patient cannot be on "pick a
+  time" with no service chosen because that state is not representable. Back and refresh work
+  without being written, a half-finished booking is a link, and — the reason it was chosen — the
+  sign-in round trip returns to the chosen slot rather than to an empty form
+- **`provider=any` is spelled out rather than left absent.** "I have not chosen" and "I do not
+  mind who" are different answers, and only one of them should stop the flow to ask
+- **Changing an answer discards everything downstream of it.** A 9:00 that was free for a
+  thirty-minute exam is not free for a two-hour root canal; carrying the instant forward would
+  send a stale one to confirm. Proven by deleting the clearing — two tests turn red
+- **Sign-in is asked for at the last step, not the first.** Availability is public, so asking
+  first would make a visitor take on an account to find out whether the clinic has a Thursday
+- **One availability request serves three steps.** The endpoint has no provider parameter, so
+  narrowing to a provider is client-side and free; only paging the calendar to another month
+  asks the server anything
+- **Two providers free at 9:00 is one 9:00 to a patient.** Offering it twice asks them to choose
+  between two things they cannot tell apart. Who it becomes is settled at the confirm step, from
+  the response’s own ordering so it is deterministic, and it is named there rather than in a
+  later email
+- **The provider list comes from the catalogue, not from availability.** Availability names only
+  providers with a free slot, so building the picker from it would erase a fully-booked dentist
+  rather than show them as busy
+- **A day is offered only if the engine returned a slot on it.** Closures, lunch, the lead time
+  and a full book all disable a date through one mechanism; the client knows no clinic rules
+- **Times render in the clinic’s zone and dates never round-trip through UTC.** The response
+  echoes `timeZone` for exactly this. Seen live on the dev machine: an 8:30am slot renders as
+  9:30pm in the browser’s zone
+- The nav’s primary action is back, now that booking has somewhere of its own to go — which is
+  the condition the decision to delete it named
 - **The catalogue is a third projection of the same rows, not a reuse of availability's.**
   Availability answers "when can this be booked" and carries `bufferMins`; the catalogue answers
   "what is offered" and carries price and biography. One schema serving both audiences would be
@@ -134,8 +188,6 @@ Phase 5, in progress:
 - `/dentists` is a grid though Home uses the strip. On the page whose job is showing all five,
   putting three behind a horizontal scroll hides the answer; the strip's real second home is the
   booking flow's provider step
-- **Deployed before the booking flow exists, and the page says so.** A visitor who discovers it by
-  pressing the button and landing back where they started concludes booking is broken, not absent
 - **shadcn's names won, not the design system's.** Its components are generated against
   `bg-primary` / `text-muted-foreground`, and two names collided outright — its `accent` is a
   hover fill, its `muted` is a background. Adapting in `@theme inline` means every future

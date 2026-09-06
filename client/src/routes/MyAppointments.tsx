@@ -52,7 +52,7 @@ export default function MyAppointments() {
         )}
 
         {appointments.data?.appointments.length === 0 && (
-          <p className="text-sm text-muted-foreground">Nothing booked. Booking is the next screen.</p>
+          <p className="text-sm text-muted-foreground">Nothing booked yet.</p>
         )}
 
         <ul className="flex flex-col gap-2">

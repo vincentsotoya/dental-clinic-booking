@@ -60,7 +60,7 @@ export default function Services() {
           Booking opens with the treatment, then the provider, then a real time from the calendar.
         </p>
         <Button asChild className="rounded-pill">
-          <Link to="/dentists">Choose a provider</Link>
+          <Link to="/book">Book an appointment</Link>
         </Button>
       </div>
     </div>

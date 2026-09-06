@@ -75,7 +75,7 @@ export default function Dentists() {
           Booking starts with the treatment, so we only offer you providers who perform it.
         </p>
         <Button asChild className="rounded-pill">
-          <Link to="/services">Start with a treatment</Link>
+          <Link to="/book">Book an appointment</Link>
         </Button>
       </div>
     </div>
