@@ -13,6 +13,8 @@ import {
   cancelAppointmentResponse,
   meResponse,
   myAppointmentsResponse,
+  providersResponse,
+  servicesResponse,
   rescheduleAppointmentResponse,
   type AvailabilityErrorCode,
   type AvailabilityResponse,
@@ -26,6 +28,8 @@ import {
   type MeResponse,
   type MyAppointmentsErrorCode,
   type MyAppointmentsResponse,
+  type ProvidersResponse,
+  type ServicesResponse,
   type RescheduleAppointmentErrorCode,
   type RescheduleAppointmentRequest,
   type RescheduleAppointmentResponse,
@@ -44,6 +48,17 @@ export const getHealth = (options: Signal = {}): Promise<HealthResponse> =>
  */
 export const getMe = (options: Signal = {}): Promise<MeResponse> =>
   request({ path: '/me', schema: meResponse, ...options })
+
+/**
+ * The clinic's price list. Public, and the only response this API lets a shared
+ * cache hold, so a page may call it without a session.
+ */
+export const getServices = (options: Signal = {}): Promise<ServicesResponse> =>
+  request({ path: '/services', schema: servicesResponse, ...options })
+
+/** The provider directory. Active providers only — a retired one is not bookable. */
+export const getProviders = (options: Signal = {}): Promise<ProvidersResponse> =>
+  request({ path: '/providers', schema: providersResponse, ...options })
 
 export type AvailabilityParams = {
   /** A service slug, not an id — `?service=routine-exam` reads in a log. */

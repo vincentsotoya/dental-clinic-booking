@@ -13,6 +13,11 @@ export const queryKeys = {
   health: () => ['health'] as const,
   me: () => ['me'] as const,
 
+  // The catalogue changes when an admin edits it (Phase 7), not when anyone
+  // books. No write in this app invalidates either of these.
+  services: () => ['services'] as const,
+  providers: () => ['providers'] as const,
+
   /** The prefix. Passing it to `invalidateQueries` matches every date range. */
   availability: () => ['availability'] as const,
   availabilityFor: (params: AvailabilityParams) => ['availability', params] as const,

@@ -14,7 +14,9 @@ import type {
   BookAppointmentRequest,
   MeResponse,
   MyAppointmentsResponse,
+  ProvidersResponse,
   RescheduleAppointmentRequest,
+  ServicesResponse,
 } from '@dental/shared'
 import {
   bookAppointment,
@@ -23,6 +25,8 @@ import {
   getHealth,
   getMe,
   getMyAppointments,
+  getProviders,
+  getServices,
   rescheduleAppointment,
   type AvailabilityParams,
 } from './endpoints'
@@ -49,6 +53,33 @@ export const useMe = (options: QueryTuning<MeResponse> = {}) =>
   useQuery({
     queryKey: queryKeys.me(),
     queryFn: ({ signal }) => getMe({ signal }),
+    ...options,
+  })
+
+// The catalogue is the one thing here that is allowed to be stale. A price list
+// that is five minutes old is still a price list; the server says the same with
+// `max-age=300`, and these windows agree with it on purpose. Refetching it when
+// a tab regains focus would be spending a request to learn nothing.
+const CATALOGUE_TUNING = {
+  staleTime: 5 * 60 * 1000,
+  refetchOnWindowFocus: false,
+} as const
+
+/** The clinic's treatments and prices. */
+export const useServices = (options: QueryTuning<ServicesResponse> = {}) =>
+  useQuery({
+    queryKey: queryKeys.services(),
+    queryFn: ({ signal }) => getServices({ signal }),
+    ...CATALOGUE_TUNING,
+    ...options,
+  })
+
+/** The provider directory. */
+export const useProviders = (options: QueryTuning<ProvidersResponse> = {}) =>
+  useQuery({
+    queryKey: queryKeys.providers(),
+    queryFn: ({ signal }) => getProviders({ signal }),
+    ...CATALOGUE_TUNING,
     ...options,
   })
 

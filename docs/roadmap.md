@@ -107,7 +107,9 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
       not cast; errors arrive as a typed `ApiRequestError` narrowed per endpoint
 - [x] **(C)** Session hook over `GET /api/me` + protected routes — React Router v8, and a session
       with three states rather than two: not-known-yet is not signed-out
-- [ ] **(V)** Home, Services, Dentists pages
+- [x] **(V)** Home, Services, Dentists pages
+- [x] **(C)** `GET /api/services` and `GET /api/providers` — the public catalogue, and the end of
+      the transcribed preview data the three pages were reading
 - [ ] **(V)** Booking flow: ServicePicker → DentistPicker → Calendar → SlotGrid → Confirm
 - [ ] **(V)** Handle `SLOT_TAKEN` 409 gracefully — refetch and explain
 - [ ] **(V)** Signup and login screens

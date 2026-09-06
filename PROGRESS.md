@@ -55,27 +55,60 @@ Phase 5, in progress:
       adaptations — regenerating `button.tsx` from the registry turns five red
 - [x] **(C)** Home, Services and Dentists — three routes under `PublicLayout`, floating nav with
       the active route marked by `NavLink`, provider strip with monograms in place of portraits
-- [x] **(C)** `vercel.json` — SPA rewrite, root-scoped install, `client/dist`. The three pages
-      need no API and deploy today; auth and appointments are dead until Phase 11 hosts the rest
+- [x] **(C)** `vercel.json` — SPA rewrite, root-scoped install, `client/dist`
+- [x] **(C)** `GET /api/services` and `GET /api/providers` — `shared/src/catalogue.ts`, one
+      router in `server/src/routes/catalogue.ts`, `useServices` / `useProviders` on the client.
+      `content/preview-data.ts` is deleted; the pages, the strip and every count on them now read
+      the API. Formatters live in `client/src/lib/format.ts`
+- [x] 🎯 `npm run db:catalogue` — 16 checks over real rows: retiring a service removes it from the
+      catalogue and restoring it brings it back, a departed provider leaves the directory while
+      their row survives, and no operational column reaches the wire
+- [x] 🎯 Falsified: drop `where: { isActive: true }` and a retired treatment is offered again.
+      Widening the `select` did *not* leak `bufferMins` — the parse strips it, which corrected the
+      claim the route's comment was making
 
 ## Current Task
 
-- [ ] **(C)** `GET /api/services` and `GET /api/providers` — public, read-only, zod schemas in
-      `shared`. Until they exist both pages read `client/src/content/preview-data.ts`, which is a
-      hand-transcribed photocopy of the seed and will drift from it
+- [ ] **(V)** Booking flow: ServicePicker → DentistPicker → Calendar → SlotGrid → Confirm
 
 ## Next
 
-- [ ] **(V)** Booking flow: ServicePicker → DentistPicker → Calendar → SlotGrid → Confirm
+- [ ] **(V)** Handle `SLOT_TAKEN` 409 gracefully — refetch and explain
 
 ## Active Blockers
 
 - **The accent hue is unsettled.** Two reference sites pointed away from cobalt; all three
   candidates were measured and none is disqualified on contrast. Cobalt ships until it is decided,
   and the decision is one edit to `index.css`
+- **The deployed site now needs an API that is not deployed.** The three public pages read the
+  catalogue rather than a transcript, so on Vercel they render their copy, their skeletons and
+  then "We couldn't load our treatments". Phase 11 hosting the server clears it; until then the
+  live URL is a shell. Reverting is not the fix — the transcript was the thing being removed
 
 ## Recent Decisions
 
+- **The catalogue is a third projection of the same rows, not a reuse of availability's.**
+  Availability answers "when can this be booked" and carries `bufferMins`; the catalogue answers
+  "what is offered" and carries price and biography. One schema serving both audiences would be
+  their union, and the buffer would end up quoted to a patient as part of their visit
+- **It is the parse, not the `select`, that keeps a column off the wire.** Widening the select to
+  fetch `bufferMins` leaked nothing — zod strips what the contract does not name. Discovered by
+  trying to falsify the opposite claim, which the route's comment had been making
+- **`public, max-age=300`, the only cacheable responses in this API.** Safe precisely because
+  neither route reads a cookie, so a shared cache cannot hand one visitor another's answer. The
+  deliberate opposite of availability's `no-store`, and the client's `staleTime` agrees with it
+- **`isActive` is the load-bearing clause in both handlers**, and the one a stub cannot prove. A
+  retired service and a departed provider keep their rows because appointments reference them;
+  offering either books a visit the clinic cannot deliver
+- **Counts are read, not written into the markup.** "Ten treatments", "Three dentists and two
+  hygienists" and both "All ten →" links were transcribed numbers in prose — the same drift as the
+  data file, one layer up. They are derived now, and an em dash stands where a count is not known
+  yet rather than a zero that becomes five
+- Home's featured four is a slug list, not `slice(0, 4)`. Taking the first four made an editorial
+  choice out of whatever the server's ordering happened to put first — which, once ordered by type
+  and name, led with crown preparation at $1,300
+- A group with no treatments is hidden rather than shown empty, and a provider with no `title` or
+  `bio` renders without a dangling separator. Both columns are nullable in the schema
 - **A nav link went missing on a phone, and nothing said so.** The link row scrolled with the
   scrollbar suppressed, so `Dentists` slid off a narrow screen with no affordance at all. The
   scrollbar is visible now: overflow is the fallback, and a fallback that cannot be seen is a bug
