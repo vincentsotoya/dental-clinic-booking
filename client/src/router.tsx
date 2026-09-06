@@ -6,11 +6,14 @@
 // perform — a route added inside the guarded branch is guarded because of where
 // it is written.
 //
-// The booking flow is its own task; this table grows a line when it arrives.
+// The booking flow is public up to its last step: availability is public, and a
+// visitor should reach a real time before being asked who they are. The confirm
+// step asks for sign-in itself, carrying the whole booking in its URL.
 
 import { createBrowserRouter } from 'react-router'
 import { RequireAuth } from './auth/RequireAuth'
 import PublicLayout from './routes/PublicLayout'
+import Book from './booking/Book'
 import Home from './routes/Home'
 import Services from './routes/Services'
 import Dentists from './routes/Dentists'
@@ -25,6 +28,7 @@ export const router = createBrowserRouter([
       { path: '/', element: <Home /> },
       { path: '/services', element: <Services /> },
       { path: '/dentists', element: <Dentists /> },
+      { path: '/book', element: <Book /> },
       // Last, and public: an unknown URL is not a reason to ask who someone is.
       { path: '*', element: <NotFound /> },
     ],
