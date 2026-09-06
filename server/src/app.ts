@@ -10,12 +10,14 @@ import { type AuthDeps, createAuthMiddleware } from './middleware/auth'
 import { createRequireOwnership } from './middleware/ownership'
 import { type AppointmentsDeps, createAppointmentsRouter } from './routes/appointments'
 import { type AvailabilityDeps, createAvailabilityRouter } from './routes/availability'
+import { type CatalogueDeps, createCatalogueRouter } from './routes/catalogue'
 import { errorHandler } from './routes/errors'
 import { createHealthRouter, type HealthDeps } from './routes/health'
 import { createMeRouter } from './routes/me'
 
 export type AppDeps = HealthDeps &
   AvailabilityDeps &
+  CatalogueDeps &
   AuthDeps &
   Omit<AppointmentsDeps, 'requireAuth' | 'requireOwnership'>
 
@@ -35,6 +37,7 @@ export function createApp(deps: AppDeps): express.Express {
 
   app.use('/api', createHealthRouter(deps))
   app.use('/api', createAvailabilityRouter(deps))
+  app.use('/api', createCatalogueRouter(deps))
   app.use('/api', createMeRouter({ ...deps, attachSession }))
   app.use('/api', createAppointmentsRouter({ ...deps, requireAuth, requireOwnership }))
 
