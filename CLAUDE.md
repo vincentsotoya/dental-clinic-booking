@@ -18,7 +18,8 @@ confirmation before modifying code.**
 
 `PROGRESS.md` current state · `docs/roadmap.md` all 12 phases, Phase 5 first shippable ·
 `CONTEXT.md` domain language · `docs/database-design.md` rules governing `schema.prisma` ·
-`docs/adr/` decisions and reasoning · `docs/concepts.md` interview prep.
+`docs/adr/` decisions and reasoning · `docs/decisions-log.md` closed phases' decisions ·
+`docs/concepts.md` interview prep.
 
 Link to these. Never copy their content into `CLAUDE.md`, `PROGRESS.md`, or a code comment.
 
