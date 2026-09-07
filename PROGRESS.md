@@ -81,24 +81,38 @@ Phase 5, in progress:
 - [x] 🎯 The flow's exact payload against real Postgres: 201 with the note, the same instant again
       answers 409 `SLOT_UNAVAILABLE`, cancel cleans up. The dev machine's zone renders that 8:30am
       slot as 9:30pm, which is the bug `clinic-time.ts` exists to prevent, seen live
+- [x] **(C)** Signup and sign-in — `routes/SignIn.tsx`, `routes/SignUp.tsx` and `auth/AuthShell`,
+      react-hook-form over the shared schemas. Where the patient was going moved out of router
+      state into `?next=`, read back through `safeNext`. **Was marked (V)** — see Active Blockers
+- [x] **(C)** `shared/src/credentials.ts` — the password rule the server enforces and the form
+      states, as one constant. `server/src/auth.ts` imports it, and sets `maxPasswordLength` too
+- [x] 🎯 22 tests over the two screens and `safeNext`. Falsified twice: drop the redirect
+      validation and five turn red, including the one that actually navigates; move
+      `PASSWORD_MIN_LENGTH` to 14 and the form's own message moves with it
+- [x] 🎯 The real endpoints by curl: 11 characters refused `PASSWORD_TOO_SHORT`, 12 accepted, and
+      `/api/me` on the new cookie answers with a chart — signed up and can book are one state. A
+      wrong password and an unknown email came back byte-identical. Proof rows deleted after
 
 ## Current Task
 
-- [ ] **(V)** Signup and login screens — `SignIn.tsx` is still the labelled stand-in
+- [ ] **(S)** `/impeccable critique`, then `/review-animations` — the review passes, now that
+      there is something built to review
 
 ## Next
 
-- [ ] **(S)** `/impeccable critique`, then `/review-animations` — the review passes, now that
-      there is something built to review
+- [ ] **(V)** 🎯 Deploy — the last item in Phase 5
 
 ## Active Blockers
 
 - **The accent hue is unsettled.** Two reference sites pointed away from cobalt; all three
   candidates were measured and none is disqualified on contrast. Cobalt ships until it is decided,
   and the decision is one edit to `index.css`
-- **The booking flow was a (V) task and Claude wrote it.** It is uncommitted and confined to
-  `client/src/booking/`, so it can be thrown away cheaply, or the roadmap's remaining **(V)** items
-  can be reassigned. The router choice in `docs/decisions-log.md` leaned on this being yours
+- **Two (V) tasks running: the booking flow and the auth screens, both written by Claude.** All of
+  it is uncommitted, and each is confined to its own directory (`client/src/booking/`,
+  `client/src/routes/Sign*.tsx` plus `client/src/auth/`), so either can still be thrown away. The
+  standing question is no longer whether to reassign one task but whether **(V)** still describes
+  the roadmap — Deploy is the only one left. The router choice in `docs/decisions-log.md` leaned
+  on the booking flow being yours
 - **The interaction design was meant to come first.** A recorded decision says how picking a slot
   *feels* is its own session before these components are written, because the design skill covers
   marketing surfaces and excludes wizards. What exists inherits the tokens and no composition
@@ -113,6 +127,31 @@ Phase 5, in progress:
 
 ## Recent Decisions
 
+- **Where the patient was going is a query parameter, not router state.** `?next=` survives a
+  refresh of the sign-in screen and the hop to sign-up; `location.state` survives neither, and
+  loses the chosen slot silently. The same argument that put the booking in the URL
+- **An unvalidated `?next=` is an open redirect**, so `safeNext` is what reads it back: three
+  spellings rejected, not one, because "starts with a slash" is not "is a local path" —
+  `//evil.example` is protocol-relative. Proven by deleting the validation
+- **One sentence whether the email or the password was wrong.** The server already answers both
+  with `INVALID_EMAIL_OR_PASSWORD` — checked, and the two bodies are identical — so a message
+  naming which half failed would leak what the server refused to. Signup cannot keep that secret
+  and does not pretend to: a taken address has to be refused
+- **The password rule lives in `shared`, not in the form.** A form that does not know the rule can
+  only discover it by being rejected, and asks for a password twice to say it was too short the
+  first time. `maxPasswordLength` is set explicitly for the same reason — a default is not a
+  shared constant
+- **Sign-in validates the password's presence, never its strength.** Checking an existing password
+  against a rule that may since have been raised rejects a correct password, phrased as a typo
+- **The confirmation field is not habit.** Verification is off until Phase 10, so there is no
+  password reset either: a typo is an account nobody can ever sign in to
+- **Better Auth's extra fields are declared on the client, not inferred.** `inferAdditionalFields
+  <typeof auth>()` cannot drift, but the import reaches into the server's Prisma types and env
+  validation. ADR-0006 puts the seam at the URL prefix. `role` is left out on purpose: naming it
+  would make `signUp.email({ role: 'ADMIN' })` compile against a server that ignores it
+- **The auth screens sit outside `PublicLayout`.** A nav offering four ways to leave is wrong on a
+  screen whose whole job is one short form. The wordmark stays — it is the only thing saying whose
+  sign-in this is
 - **The booking is the URL, and the step is derived from it.** A patient cannot be on "pick a
   time" with no service chosen because that state is not representable. Back and refresh work
   without being written, a half-finished booking is a link, and — the reason it was chosen — the

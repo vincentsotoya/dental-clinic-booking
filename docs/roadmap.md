@@ -114,7 +114,8 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
       The whole booking lives in the URL, so the step is derived rather than stored
 - [x] **(C)** Handle `SLOT_TAKEN` 409 gracefully — refetch and explain. Done with the confirm
       step, which is the only screen that can lose the race
-- [ ] **(V)** Signup and login screens
+- [x] **(C)** Signup and login screens — the destination moved into `?next=`, so it
+      survives a refresh and the sign-in ⇄ sign-up hop. **Was (V)**
 - [ ] **(S)** `/impeccable critique`, then `/review-animations` — both are review passes and stay
       here, after there is something built to review
 - [ ] **(V)** 🎯 Deploy
