@@ -5,7 +5,7 @@
 // stop at that boundary — see docs/adr/0006. What ownership *means* for the
 // rows on our side of it is docs/adr/0007.
 
-import { type Role, ROLES } from '@dental/shared'
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, type Role, ROLES } from '@dental/shared'
 import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
 import { prisma } from './db'
@@ -31,9 +31,13 @@ export const auth = betterAuth({
     // Turning this on is what unlocks revisiting that rule.
     requireEmailVerification: false,
 
-    // Above the library's default of 8. This is a portfolio app holding
-    // fictional medical records; the cost of the stricter rule is one line.
-    minPasswordLength: 12,
+    // Both constants come from `shared`, which is where the signup form reads
+    // them too. They are not literals here because a form that does not know
+    // the rule can only discover it by being rejected.
+    minPasswordLength: PASSWORD_MIN_LENGTH,
+    // Set explicitly rather than left to the library's default, so the ceiling
+    // the form enforces is the one that is actually enforced.
+    maxPasswordLength: PASSWORD_MAX_LENGTH,
   },
 
   user: {
