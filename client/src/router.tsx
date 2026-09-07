@@ -20,6 +20,7 @@ import Dentists from './routes/Dentists'
 import MyAppointments from './routes/MyAppointments'
 import NotFound from './routes/NotFound'
 import SignIn from './routes/SignIn'
+import SignUp from './routes/SignUp'
 
 export const router = createBrowserRouter([
   {
@@ -33,7 +34,10 @@ export const router = createBrowserRouter([
       { path: '*', element: <NotFound /> },
     ],
   },
+  // Outside `PublicLayout`: a screen whose whole job is one short form does
+  // not want a nav offering four ways to leave it. Both carry `?next=`.
   { path: '/sign-in', element: <SignIn /> },
+  { path: '/sign-up', element: <SignUp /> },
   {
     element: <RequireAuth />,
     children: [{ path: '/appointments', element: <MyAppointments /> }],

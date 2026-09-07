@@ -16,11 +16,35 @@
 // invalidated, which is the one line that keeps the two in step.
 
 import { createAuthClient } from 'better-auth/react'
+import { inferAdditionalFields } from 'better-auth/client/plugins'
 
 export const authClient = createAuthClient({
   // Same-origin: Vite proxies /api to Express in dev. Phase 11 decides what
   // this is once the client is deployed separately.
   basePath: '/api/auth',
+
+  plugins: [
+    /**
+     * The two name fields the signup form sends, declared rather than inferred.
+     *
+     * The library's shorthand is `inferAdditionalFields<typeof auth>()`, which
+     * reads the server instance's own configuration and cannot drift. It is not
+     * taken here because that import reaches into `server/src/auth.ts`, and
+     * through it into Prisma's generated types and the server's env validation
+     * — the client's typecheck would then depend on the server being built.
+     * ADR-0006 puts the seam at the URL prefix; this keeps it there.
+     *
+     * `role` is deliberately absent. It is `input: false` on the server, and
+     * naming it here would make `signUp.email({ role: 'ADMIN' })` compile
+     * against a server that silently ignores it.
+     */
+    inferAdditionalFields({
+      user: {
+        firstName: { type: 'string', required: true, input: true },
+        lastName: { type: 'string', required: true, input: true },
+      },
+    }),
+  ],
 })
 
 export const { signIn, signUp, signOut } = authClient
