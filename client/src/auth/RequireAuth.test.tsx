@@ -45,7 +45,11 @@ const ADMIN: MeResponse = {
  * `session` seeds the cache so `/api/me` is already answered; `undefined`
  * leaves the query pending, which is the cold-load state.
  */
-function renderGuard(session: MeResponse | null | undefined, roles?: ('PATIENT' | 'ADMIN')[]) {
+function renderGuard(
+  session: MeResponse | null | undefined,
+  roles?: ('PATIENT' | 'ADMIN')[],
+  at = '/private',
+) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -65,7 +69,7 @@ function renderGuard(session: MeResponse | null | undefined, roles?: ('PATIENT' 
       { path: '/', element: <p>home</p> },
       { element: <RequireAuth roles={roles} />, children: [{ path: '/private', element: <p>private page</p> }] },
     ],
-    { initialEntries: ['/private'] },
+    { initialEntries: [at] },
   )
 
   render(
@@ -101,11 +105,13 @@ describe('RequireAuth', () => {
     expect(router.state.location.pathname).toBe('/private')
   })
 
-  it('remembers where the visitor was going', async () => {
-    const router = renderGuard(null)
+  // In the query string, not in router state: it has to survive a refresh of
+  // the sign-in screen and the hop to sign-up. See auth/next-location.ts.
+  it('remembers where the visitor was going, query string and all', async () => {
+    const router = renderGuard(null, undefined, '/private?tab=past')
 
     await screen.findByText('sign-in screen')
-    expect((router.state.location.state as { from?: string }).from).toBe('/private')
+    expect(router.state.location.search).toBe('?next=%2Fprivate%3Ftab%3Dpast')
   })
 
   // `replace`, so the back button does not land on the guard and bounce again.

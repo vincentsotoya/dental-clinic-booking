@@ -7,6 +7,7 @@
 
 import { Navigate, Outlet, useLocation } from 'react-router'
 import type { Role } from '@dental/shared'
+import { authPath } from './next-location'
 import { useSession } from './use-session'
 
 type Props = {
@@ -26,8 +27,10 @@ export function RequireAuth({ roles }: Props) {
 
   if (session.status === 'anonymous') {
     // `replace`, so the back button does not return to the guard and bounce
-    // again. `from` is how the sign-in screen sends them where they meant to go.
-    return <Navigate to="/sign-in" replace state={{ from: location.pathname + location.search }} />
+    // again. The destination rides in the query string rather than in router
+    // state, so it survives a refresh of the sign-in screen and the hop to
+    // sign-up — see next-location.ts.
+    return <Navigate to={authPath('/sign-in', location.pathname + location.search)} replace />
   }
 
   if (roles && !roles.includes(session.user.role)) {

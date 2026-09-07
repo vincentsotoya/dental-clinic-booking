@@ -4,6 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Book from './Book'
 import { localDateToCivil } from '@/lib/clinic-time'
+import { safeNext } from '@/auth/next-location'
 
 // The flow driven end to end over a stubbed `fetch` rather than a seeded cache.
 // The stub is the wire, so these exercise the real query keys, the real
@@ -199,12 +200,17 @@ describe('the confirm step', () => {
     expect(screen.getByText(/Chosen for you/)).toBeDefined()
   })
 
-  // The whole reason the flow can be public until here.
+  // The whole reason the flow can be public until here. The destination is in
+  // the href rather than in router state, so this asserts the round trip
+  // instead of trusting it — and `safeNext` is what reads it back.
   it('sends an anonymous patient to sign in, and back to this exact slot', async () => {
     at(CHOSEN)
 
     const link = await screen.findByRole('link', { name: 'Sign in to book' })
-    expect(link.getAttribute('href')).toBe('/sign-in')
+    const href = link.getAttribute('href') ?? ''
+
+    expect(href.startsWith('/sign-in?next=')).toBe(true)
+    expect(safeNext(new URL(href, 'https://quillon.example').searchParams.get('next'))).toBe(CHOSEN)
   })
 
   it('books with the three fields the contract allows, and no more', async () => {

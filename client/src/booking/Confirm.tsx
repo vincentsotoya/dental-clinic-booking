@@ -18,6 +18,7 @@ import type { UseQueryResult } from '@tanstack/react-query'
 import type { AvailabilityResponse, CatalogueService } from '@dental/shared'
 import { useBookAppointment } from '@/api/hooks'
 import { ApiRequestError } from '@/api/errors'
+import { authPath } from '@/auth/next-location'
 import { useSession } from '@/auth/use-session'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -133,9 +134,10 @@ export function Confirm({ booking, service, availability }: Props) {
             One more thing — we need to know who you are before we can hold this.
           </p>
           <Button asChild className="mt-4 rounded-pill">
-            {/* `from` is this exact URL, slot and all, so signing in returns
-                them here rather than to an empty booking flow. */}
-            <Link to="/sign-in" state={{ from: location.pathname + location.search }}>
+            {/* `next` is this exact URL, slot and all, so signing in — or
+                signing up, which carries it across the hop — returns them here
+                rather than to an empty booking flow. */}
+            <Link to={authPath('/sign-in', location.pathname + location.search)}>
               Sign in to book
             </Link>
           </Button>
