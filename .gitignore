@@ -33,3 +33,6 @@ Thumbs.db
 
 # test output
 coverage/
+
+# impeccable — critique snapshots are durable, the hook cache is not
+.impeccable/hook.cache.json
