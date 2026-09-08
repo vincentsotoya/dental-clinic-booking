@@ -47,6 +47,21 @@ export function formatClinicTime(instant: string, timeZone: string): string {
   }).format(new Date(instant))
 }
 
+/**
+ * The hour an instant falls in as the clinic reads it, 0–23.
+ *
+ * `h23` rather than `hour12: false`, which formats midnight as 24 in some ICU
+ * builds. Grouping a patient's times by their own zone would put the clinic's
+ * morning in someone's afternoon.
+ */
+export function clinicHour(instant: string, timeZone: string): number {
+  return Number(
+    new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone }).format(
+      new Date(instant),
+    ),
+  )
+}
+
 /** "Thursday, September 10" from a civil date, with no zone conversion at all. */
 export function formatCivilDate(value: string): string {
   return new Intl.DateTimeFormat('en-US', {
