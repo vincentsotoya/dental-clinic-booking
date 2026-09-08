@@ -9,7 +9,7 @@
 // can see real times before being asked who they are; only the write needs a
 // session, and that is where sign-in is asked for.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { useAvailability, useServices } from '@/api/hooks'
 import { LoadFailed } from '@/components/LoadFailed'
@@ -20,7 +20,19 @@ import { ChooseDate } from './ChooseDate'
 import { ChooseTime } from './ChooseTime'
 import { Confirm } from './Confirm'
 import { StepTrail } from './StepTrail'
-import { useBookingParams } from './use-booking-params'
+import { useBookingParams, type BookingStep } from './use-booking-params'
+
+// Nothing is ever skipped and the order is fixed (see `use-booking-params.ts`),
+// so a step's position is safe to say out loud.
+const QUESTIONS: Record<BookingStep, string> = {
+  service: 'What do you need?',
+  provider: 'Who would you like to see?',
+  date: 'Pick a day',
+  time: 'Pick a time',
+  confirm: 'Does this look right?',
+}
+
+const ORDER = Object.keys(QUESTIONS) as BookingStep[]
 
 export default function Book() {
   const booking = useBookingParams()
@@ -41,6 +53,24 @@ export default function Book() {
     choices.service ? { service: choices.service, from: range.from, to: range.to } : null,
   )
 
+  const announcement = `Step ${ORDER.indexOf(step) + 1} of ${ORDER.length}. ${QUESTIONS[step]}`
+
+  useEffect(() => {
+    document.title = `${QUESTIONS[step]} — Book an appointment · Quillon Dental`
+  }, [step])
+
+  // The step swaps inside this container, so the button that was just pressed
+  // unmounts and focus falls to `<body>`: nothing is announced and the next Tab
+  // starts from the top of the page. Never on the first render — a patient
+  // arriving at the page keeps their focus.
+  const stepRef = useRef<HTMLDivElement>(null)
+  const focused = useRef(step)
+  useEffect(() => {
+    if (focused.current === step) return
+    focused.current = step
+    stepRef.current?.focus()
+  }, [step])
+
   return (
     <div className="mx-auto max-w-3xl px-6 pt-12 pb-20">
       <h1 className="font-display text-3xl leading-tight font-extrabold tracking-[-0.03em] text-balance sm:text-4xl">
@@ -49,7 +79,14 @@ export default function Book() {
 
       <StepTrail booking={booking} service={service} availability={availability.data} />
 
-      <div className="mt-8">
+      {/* Says the position, which moving focus does not convey. Repeating the
+          question a screen reader may also read from the step beats the chance
+          it reads neither. */}
+      <div aria-live="polite" className="sr-only">
+        {announcement}
+      </div>
+
+      <div ref={stepRef} tabIndex={-1} className="mt-8">
         {services.isError ? (
           <LoadFailed what="our treatments" onRetry={() => void services.refetch()} />
         ) : step === 'service' ? (

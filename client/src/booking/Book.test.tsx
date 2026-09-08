@@ -270,3 +270,44 @@ describe('the confirm step', () => {
     expect(screen.queryByRole('button', { name: 'Confirm booking' })).toBeNull()
   })
 })
+
+// A step change is a navigation with no page load: without this the pressed
+// button unmounts, focus lands on `<body>` and nothing is announced.
+describe('moving between steps', () => {
+  it('leaves focus alone on the first render', async () => {
+    at('/book')
+
+    await screen.findByRole('heading', { name: 'What do you need?' })
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('moves focus onto the step that replaced the one just answered', async () => {
+    at('/book')
+
+    fireEvent.click(await screen.findByRole('button', { name: /Routine Exam/ }))
+
+    const heading = await screen.findByRole('heading', { name: 'Who would you like to see?' })
+    expect(document.activeElement).not.toBe(document.body)
+    expect(document.activeElement?.contains(heading)).toBe(true)
+  })
+
+  it('says which step the patient has arrived at, somewhere that announces', async () => {
+    at('/book')
+
+    fireEvent.click(await screen.findByRole('button', { name: /Routine Exam/ }))
+
+    // Found by the live attribute rather than by its text: text a screen reader
+    // never announces is the failure this is guarding against.
+    await waitFor(() => {
+      const live = document.querySelector('[aria-live="polite"]')
+      expect(live?.textContent).toBe('Step 2 of 5. Who would you like to see?')
+    })
+  })
+
+  it('names the step in the document title', async () => {
+    at(`/book?service=routine-exam&provider=any&date=${DAY}`)
+
+    await screen.findByRole('button', { name: '9:00 AM' })
+    expect(document.title).toContain('Pick a time')
+  })
+})
