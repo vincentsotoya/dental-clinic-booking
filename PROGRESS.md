@@ -92,14 +92,42 @@ Phase 5, in progress:
 - [x] 🎯 The real endpoints by curl: 11 characters refused `PASSWORD_TOO_SHORT`, 12 accepted, and
       `/api/me` on the new cookie answers with a chart — signed up and can book are one state. A
       wrong password and an unknown email came back byte-identical. Proof rows deleted after
+- [x] **(S)** `/impeccable critique` over the booking flow — **27/40**, one P0 and four P1s.
+      Snapshot in `.impeccable/critique/`, which `/impeccable polish` reads its priorities from.
+      Verdict: the copy is authored for this product, the composition is not
+- [x] **(C)** The P0: step changes announce themselves. Focus moves to the step that replaced the
+      one just answered, an `aria-live` region says the position, and the title names the
+      question. The *visible* step indicator is the composition session's, not this fix's
+- [x] 🎯 Falsified three ways, one red test each: drop the `focus()` and focus stays on `<body>`;
+      drop `aria-live` and the announcement is text nothing reads; drop the first-render guard and
+      the page steals focus from a patient who just arrived
+- [x] **(S)** `/impeccable shape` — the composition session the design system deferred, settled in
+      `docs/booking-composition.md`. No code: shape returns a brief and stops
 
 ## Current Task
 
-- [ ] **(S)** `/impeccable critique`, then `/review-animations` — the review passes, now that
-      there is something built to review
+Build the three changes in `docs/booking-composition.md`, in that order:
+
+- [x] **(C)** Step 1 — two doors above a deliberately ordered list, treatment name over price.
+      Order is a slug list in `ChooseService.tsx`; the doors are ADR-0010
+- [x] 🎯 9 tests, falsified three ways: stop sorting and the list leads with Child Cleaning again;
+      rank an unknown slug at -1 and a new treatment jumps the queue instead of joining the end;
+      build the doors without reading the catalogue and a retired service keeps its door
+- [x] **(C)** Step 4 — morning/afternoon split at the clinic's noon, each group collapsing to six
+      behind a counted disclosure, led by "Earliest — 10:15 AM". `clinicHour` is new in
+      `clinic-time.ts`
+- [x] 🎯 9 tests, falsified three ways: split on the browser's hour and two turn red on a machine
+      at UTC+9; stop collapsing and six becomes thirteen; drop `aria-expanded` and the disclosure
+      redraws the list without saying it grew
+- [x] 🎯 Against real rows: 9 September returns 17 distinct times, 4 morning / 13 afternoon, and
+      the boundary falls where the clinic's lunch actually is — morning ends 11:00 AM, afternoon
+      starts 1:00 PM. Nothing tuned to make that land
+- [ ] **(C)** Position and revision split into three controls: progress, Back, trail
 
 ## Next
 
+- [ ] **(S)** `/review-animations` — moved to after the composition session, not before:
+      reviewing motion on screens about to be restructured reviews work that will not exist
 - [ ] **(V)** 🎯 Deploy — the last item in Phase 5
 
 ## Active Blockers
@@ -107,16 +135,15 @@ Phase 5, in progress:
 - **The accent hue is unsettled.** Two reference sites pointed away from cobalt; all three
   candidates were measured and none is disqualified on contrast. Cobalt ships until it is decided,
   and the decision is one edit to `index.css`
-- **Two (V) tasks running: the booking flow and the auth screens, both written by Claude.** All of
-  it is uncommitted, and each is confined to its own directory (`client/src/booking/`,
-  `client/src/routes/Sign*.tsx` plus `client/src/auth/`), so either can still be thrown away. The
-  standing question is no longer whether to reassign one task but whether **(V)** still describes
-  the roadmap — Deploy is the only one left. The router choice in `docs/decisions-log.md` leaned
-  on the booking flow being yours
-- **The interaction design was meant to come first.** A recorded decision says how picking a slot
-  *feels* is its own session before these components are written, because the design skill covers
-  marketing surfaces and excludes wizards. What exists inherits the tokens and no composition
-  advice; `/impeccable critique` is the roadmap's answer and is still ahead
+- **Does (V) still describe the roadmap?** The booking flow and the auth screens are written and
+  committed, so the throw-it-away option is gone and Deploy is the only **(V)** left. The router
+  choice in `docs/decisions-log.md` leaned on the booking flow being yours
+- **The critique's browser half never ran.** No browser automation was exposed and `detect.mjs`'s
+  URL mode needs puppeteer, which is not a dependency. Contrast, spacing rhythm and responsive
+  behaviour are unmeasured, and four touch-target numbers are computed from Tailwind classes
+  rather than seen: calendar cell ~32px, `StepTrail` crumb ~28px, time pill ~42px, confirm button
+  40px. **Vincent verifies these in devtools at 390px and 1440px** before `/impeccable adapt` acts
+  on them
 - **A month of availability is 352KB uncompressed** for a popular service — 1,482 slots, of which
   the calendar needs only the 20 distinct dates. Tolerable gzipped, and the fix is a days-only
   projection on the server rather than anything on the client
@@ -127,6 +154,34 @@ Phase 5, in progress:
 
 ## Recent Decisions
 
+- **Noon is not an arbitrary halving — it is where the clinic's lunch is.** The morning/afternoon
+  split had to be computed through `clinicHour`, in the zone the response echoes: this machine
+  renders a 9:00 AM clinic slot as 22:00, so a browser-zone split files the whole morning under
+  afternoon. The same bug `clinic-time.ts` already exists to prevent, one level up
+- **A disclosure counts what it is holding.** "Show all 13 afternoon times" rather than "Show
+  more": a collapse that hides an unknown quantity is a worse trade than the scroll it saved.
+  `aria-expanded` is what says the list grew, so the announcement cannot drift from the button
+- **The shortcut stays away when there is no list to skip.** "Earliest" appears only past six
+  times; on a short day it is one more thing to read rather than a saving. Same shape as step 1's
+  doors — a shortcut duplicates a row on purpose, and earns its place only where scanning costs
+- **The service order is a slug list in the client, not a `sortOrder` column.** Same precedent as
+  Home's featured four: an editorial choice belongs where editorial choices already live, and no
+  schema change buys anything until the front desk can set it in Phase 7. An unknown slug sorts to
+  the end — a treatment the clinic adds must not vanish because a list in the client is stale
+- **Two of ten services are named at the front door, and that needed an ADR** (ADR-0010). The doors
+  route to a visit type, never a symptom to a treatment: the first is triage a receptionist does,
+  the second is a treatment plan the system may not imply
+- **A step change is a navigation with no page load, so it has to say so.** Focus moves to the
+  step that replaced the answered one, because otherwise the pressed button unmounts and focus
+  falls to `<body>` — nothing announced, and the next Tab starting from the top of the page. The
+  live region carries the position because moving focus does not convey it
+- **The P0 split in half: behaviour now, the visible indicator later.** Focus, announcement and
+  title are defects whatever the flow ends up looking like. "Step 3 of 5" as a *drawn* thing is a
+  composition decision, and building it before that session means designing it twice
+- **The critique named the gap the design system predicted.** `docs/design-system.md` gave this
+  flow "these tokens only — interaction patterns are an open question", and the 27/40 is mostly
+  that: error prevention scores 4, the copy scores 4, and the composition scores 2s. Step 1 sorts
+  a pain-driven choice alphabetically and step 4 shows 26 identical pills
 - **Where the patient was going is a query parameter, not router state.** `?next=` survives a
   refresh of the sign-in screen and the hop to sign-up; `location.state` survives neither, and
   loses the chosen slot silently. The same argument that put the booking in the URL
@@ -237,8 +292,10 @@ Phase 5, in progress:
   dark-mode red — the exact failure `design-system.md` warns about, arriving pre-written
 - **`outline-none` was the dangerous one.** It sits in Tailwind's utilities layer, ordered after
   base, so a generated `<Button>` would have silently disabled the project's only focus indicator
-  while passing every type check. Stripped everywhere, with one exception: `calendar.tsx`'s
-  dropdown, where the focused element is a `<select>` at `opacity-0`
+  while passing every type check. Stripped everywhere, `calendar.tsx` included, with no exception.
+  The exception belongs to a *different* invariant: `calendar.tsx` alone may carry a `has-focus:`
+  ring, because the focused element there is a `<select>` at `opacity-0` and the global outline
+  would draw on nothing
 - **No `.dark` class and no `@custom-variant dark`.** The page follows `prefers-color-scheme`,
   so leaving `dark:` at Tailwind's default is what makes the variants inside a generated component
   resolve at all. Adding the variant without a `.dark` class would make them dead code

@@ -116,8 +116,16 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
       step, which is the only screen that can lose the race
 - [x] **(C)** Signup and login screens — the destination moved into `?next=`, so it
       survives a refresh and the sign-in ⇄ sign-up hop. **Was (V)**
-- [ ] **(S)** `/impeccable critique`, then `/review-animations` — both are review passes and stay
-      here, after there is something built to review
+- [x] **(S)** `/impeccable critique` — 27/40 over the booking flow. The copy is authored for this
+      product, the composition is not, which is the gap `docs/design-system.md` predicted
+- [x] **(C)** Its P0: step changes move focus, announce their position and name themselves in the
+      title. The visible step indicator belongs to the composition session below
+- [x] **(S)** The composition session — the one thing `/design-taste-frontend` explicitly excluded.
+      Settled in `docs/booking-composition.md`: ask what the patient knows, not what the clinic files
+- [ ] **(C)** Build it — two doors at step 1, the morning/afternoon split at step 4, and position
+      and revision split into three controls
+- [ ] **(S)** `/review-animations` — after the composition session, not before: motion on screens
+      about to be restructured is motion that will not exist
 - [ ] **(V)** 🎯 Deploy
 
 ## Phase 6 — Patient account
