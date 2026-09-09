@@ -59,6 +59,11 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 12px;
+
+  /* Folded onto Tailwind's name the way the radii are: the built-in ease-out
+   * is too weak to read as deliberate. Movement uses this; colour keeps the
+   * default curve, which is the right register for feedback. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 /* ---- The palette ---- */
@@ -127,17 +132,35 @@
     border-radius: 2px;
   }
 
-  /* MOTION_INTENSITY 3: transitions are feedback, so they are the only thing
-   * to switch off. Nothing here loops, so nothing here needs a still frame. */
+  /* MOTION_INTENSITY 3. Movement is what goes, not motion altogether: colour
+   * and opacity are feedback a patient reads, and switching them off removes
+   * comprehension rather than movement. Narrowing `transition-property` is
+   * what drops transform and width without touching either — a base rule, so
+   * no component has to remember it. The skeleton's pulse is the one loop. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
+      transition-property: color, background-color, border-color, outline-color,
+        opacity, box-shadow !important;
       scroll-behavior: auto !important;
     }
+  }
+}
+
+/* Press feedback, on everything a patient taps. The flow is one-handed on a
+ * phone, where hover never fires — so before this, a press had no feedback at
+ * all until the screen changed. Scale rides with the colours rather than in
+ * place of them, and 0.97 is the subtle end of the usable range. */
+@utility pressable {
+  transition-property: color, background-color, border-color, box-shadow, transform;
+  transition-timing-function: var(--ease-out);
+  transition-duration: 160ms;
+
+  &:active {
+    transform: scale(0.97);
   }
 }
 

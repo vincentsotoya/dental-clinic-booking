@@ -42,7 +42,7 @@ export function ChooseProvider({ service, onChoose }: Props) {
           <button
             type="button"
             onClick={() => onChoose(ANY_PROVIDER)}
-            className="w-full rounded-card border border-border bg-card p-5 text-left transition-colors hover:border-primary"
+            className="w-full rounded-card border border-border bg-card p-5 text-left pressable hover:border-primary"
           >
             <span className="font-display text-base font-bold tracking-tight">
               Anyone available
@@ -64,7 +64,7 @@ export function ChooseProvider({ service, onChoose }: Props) {
                 <button
                   type="button"
                   onClick={() => onChoose(provider.id)}
-                  className="flex w-full items-start gap-4 rounded-card border border-border bg-card p-5 text-left transition-colors hover:border-primary"
+                  className="flex w-full items-start gap-4 rounded-card border border-border bg-card p-5 text-left pressable hover:border-primary"
                 >
                   <span
                     aria-hidden="true"

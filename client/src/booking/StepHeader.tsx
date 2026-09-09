@@ -45,9 +45,11 @@ export function StepHeader({ booking }: Props) {
       </div>
 
       <div aria-hidden="true" className="mt-3 h-1 overflow-hidden rounded-pill bg-accent">
+        {/* Scaled, not resized — and unrounded, because the track's own clip
+            shapes the ends without a radius squashing under the scale. */}
         <div
-          className="h-full rounded-pill bg-primary motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-out"
-          style={{ width: `${(position / ORDER.length) * 100}%` }}
+          className="h-full w-full origin-left bg-primary transition-transform duration-200 ease-out"
+          style={{ transform: `scaleX(${position / ORDER.length})` }}
         />
       </div>
     </div>

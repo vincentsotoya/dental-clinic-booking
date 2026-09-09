@@ -110,7 +110,7 @@ export function StepTrail({ booking, service, availability }: Props) {
                 aria-label={`${crumb.label} — change this`}
                 aria-expanded={asks ? open : undefined}
                 aria-controls={open ? panelId : undefined}
-                className="inline-flex min-h-11 items-center rounded-pill bg-accent px-4 font-medium text-accent-foreground transition-colors hover:bg-accent/60"
+                className="inline-flex min-h-11 items-center rounded-pill bg-accent px-4 font-medium text-accent-foreground pressable hover:bg-accent/60"
               >
                 {crumb.label}
               </button>

@@ -51,4 +51,15 @@ describe('the button follows the design system', () => {
   it('sets its label in display type', () => {
     expect(button).toMatch(/font-display/)
   })
+
+  it('names the properties it transitions', () => {
+    // `transition-all` was the generator's, and it put every animatable
+    // property in scope — the base `:focus-visible` outline included.
+    expect(button).not.toMatch(/transition-all/)
+  })
+
+  it('answers a press', () => {
+    // The only feedback a button gives on a phone, where hover never fires.
+    expect(button).toMatch(/pressable/)
+  })
 })

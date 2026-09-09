@@ -81,7 +81,7 @@ export function ChooseService({ services, isPending, onChoose }: Props) {
               <button
                 type="button"
                 onClick={() => onChoose(service.slug)}
-                className="flex h-full w-full flex-col gap-1 rounded-card border border-primary/40 bg-card p-4 text-left transition-colors hover:border-primary"
+                className="flex h-full w-full flex-col gap-1 rounded-card border border-primary/40 bg-card p-4 text-left pressable hover:border-primary"
               >
                 <span className="font-display text-base font-bold tracking-tight text-primary">
                   {question}
@@ -131,7 +131,7 @@ function Group({
             <button
               type="button"
               onClick={() => onChoose(service.slug)}
-              className="w-full rounded-card border border-border bg-card p-5 text-left transition-colors hover:border-primary"
+              className="w-full rounded-card border border-border bg-card p-5 text-left pressable hover:border-primary"
             >
               <span className="font-display text-lg leading-snug font-bold tracking-tight">
                 {service.name}

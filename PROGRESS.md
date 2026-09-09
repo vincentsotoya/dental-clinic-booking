@@ -126,17 +126,23 @@ Phase 5, in progress:
       position twice; jumping without asking turns three red; asking about the last answer turns
       one red; and each of the two focus moves turns one
 - [x] 🎯 In the built CSS, not in the class names: `--spacing:.25rem` against `.min-h-11` and
-      `.h-11` puts every new control at 44px, and the progress bar's width transition exists
-      only inside `@media (prefers-reduced-motion:no-preference)`
+      `.h-11` puts every new control at 44px
+- [x] **(S)** `/review-animations` — **Block**, six findings, all applied. `pressable` and
+      `--ease-out` are new in `index.css`; the progress bar scales instead of resizing; the
+      button names the properties it transitions; reduced motion drops movement and keeps colour
+- [x] 🎯 Proven in the built CSS: `.pressable:active{transform:scale(.97)}` at
+      `cubic-bezier(.23,1,.32,1)`/160ms, and the reduce block's `transition-property` allowlist
+      with no `transform` in it. Falsified: regenerating `button.tsx` from the registry turns
+      seven red, two of them the new ones
 
 ## Current Task
 
-- [ ] **(S)** `/review-animations` — held until after the composition session, not before:
-      motion on screens about to be restructured is motion that will not exist. They exist now
+- [ ] **(V)** 🎯 Deploy — the last item in Phase 5
 
 ## Next
 
-- [ ] **(V)** 🎯 Deploy — the last item in Phase 5
+- [ ] **Phase 6** — the patient account: my appointments, cancel, reschedule, profile and
+      insurance details. The Phase 4 endpoints are already built and proven; this is their screens
 
 ## Active Blockers
 
@@ -162,6 +168,15 @@ Phase 5, in progress:
 
 ## Recent Decisions
 
+- **Reduced motion drops movement, not motion.** The blanket `transition-duration: 0.01ms` also
+  switched off colour and opacity, which are feedback a patient reads rather than movement they
+  can be hurt by. Narrowing `transition-property` on `*` is what drops transform and width
+  while keeping the rest, and it stays a base rule so no component has to remember it — the same
+  argument the focus ring is a base style
+- **A press is the only feedback a phone gives.** The flow is one-handed on a device where hover
+  never fires, so every card, pill and crumb pressed the same as a dead element until it acted.
+  One `pressable` utility rather than the class on each control, because the value is a decision
+  and decisions are stated once
 - **Back is one question, not one history entry.** The sign-in round trip leaves entries in
   history that are not the flow's own, so `history.back()` from the confirm step returns to the
   sign-in screen. Deriving the destination from the step and clearing exactly one answer is the

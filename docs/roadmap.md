@@ -125,8 +125,9 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
 - [x] **(C)** Build it — two doors at step 1, the morning/afternoon split at step 4, and position
       and revision split into three controls: a progress bar, a Back that clears one answer, and a
       trail that says what a jump will clear
-- [ ] **(S)** `/review-animations` — after the composition session, not before: motion on screens
-      about to be restructured is motion that will not exist
+- [x] **(S)** `/review-animations` — Block, six findings, all applied: the progress bar scales
+      rather than resizes, the button names what it transitions, every tappable control answers a
+      press, and reduced motion keeps colour while dropping movement
 - [ ] **(V)** 🎯 Deploy
 
 ## Phase 6 — Patient account

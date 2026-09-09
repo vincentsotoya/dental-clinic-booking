@@ -121,7 +121,7 @@ function Group({
             <button
               type="button"
               onClick={() => onChoose(at)}
-              className="min-h-11 w-full rounded-pill border border-border bg-card px-3 text-sm font-medium tabular-nums transition-colors hover:border-primary hover:bg-accent"
+              className="min-h-11 w-full rounded-pill border border-border bg-card px-3 text-sm font-medium tabular-nums pressable hover:border-primary hover:bg-accent"
             >
               {formatClinicTime(at, zone)}
             </button>
