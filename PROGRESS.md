@@ -137,7 +137,15 @@ Phase 5, in progress:
 
 ## Current Task
 
-- [ ] **(V)** 🎯 Deploy — the last item in Phase 5
+- [x] **(C)** Deploy, everything up to the publish — `client/public/robots.txt` and a `noindex`
+      meta unlist the site while it has no API, and the README's status table no longer says there
+      is no user interface
+- [x] 🎯 The built `client/dist` served under `vercel.json`'s own rewrite: six routes including
+      two deep links return the app shell, `/api/*` returns 404, and `robots.txt` is served as a
+      file rather than swallowed by the SPA rewrite. A 404's HTML body fails `apiError.safeParse`,
+      so the shell degrades to "we couldn't load" with a retry rather than crashing
+- [ ] **(V)** 🎯 The publish itself — import the repo at vercel.com/new, framework preset "Other",
+      root directory left at the repo root. Needs a Vercel login, which is not on this machine
 
 ## Next
 
@@ -161,13 +169,18 @@ Phase 5, in progress:
 - **A month of availability is 352KB uncompressed** for a popular service — 1,482 slots, of which
   the calendar needs only the 20 distinct dates. Tolerable gzipped, and the fix is a days-only
   projection on the server rather than anything on the client
-- **The deployed site now needs an API that is not deployed.** The three public pages read the
-  catalogue rather than a transcript, so on Vercel they render their copy, their skeletons and
-  then "We couldn't load our treatments". Phase 11 hosting the server clears it; until then the
-  live URL is a shell. Reverting is not the fix — the transcript was the thing being removed
+- **The deployed site needs an API that is not deployed.** The public pages and `/book` read the
+  catalogue, so on Vercel they render their copy, their skeletons and then "We couldn't load our
+  treatments". Phase 11 hosting the server clears it. Until then the site is deliberately unlisted
+  rather than reverted — the transcript was the thing being removed, and a portfolio piece found
+  in a broken state reads as broken software
 
 ## Recent Decisions
 
+- **The first deploy ships unlisted, not public.** The roadmap put Deploy in Phase 5 and hosting in
+  Phase 11, which means a live URL that fails on every page for several phases. `robots.txt` and
+  `noindex` are what let both be true: the pipeline is proven now, on the push where a Vercel
+  config problem is cheap to find, and nobody lands on the failure in the meantime
 - **Reduced motion drops movement, not motion.** The blanket `transition-duration: 0.01ms` also
   switched off colour and opacity, which are feedback a patient reads rather than movement they
   can be hurt by. Narrowing `transition-property` on `*` is what drops transform and width

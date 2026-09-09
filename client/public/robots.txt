@@ -1,0 +1,6 @@
+# The site is deployed without its API until Phase 11 hosts the server, so
+# every page it serves ends in a load failure. Nothing here is worth indexing
+# yet, and a portfolio piece found in that state reads as broken software.
+# Remove this file, and the robots meta in index.html, when the API is live.
+User-agent: *
+Disallow: /

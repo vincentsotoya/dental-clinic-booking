@@ -128,7 +128,8 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
 - [x] **(S)** `/review-animations` — Block, six findings, all applied: the progress bar scales
       rather than resizes, the button names what it transitions, every tappable control answers a
       press, and reduced motion keeps colour while dropping movement
-- [ ] **(V)** 🎯 Deploy
+- [🔨] **(V)** 🎯 Deploy — the build is proven against `vercel.json`'s own rewrite and the client
+      is unlisted; the publish itself needs Vincent's Vercel login
 
 ## Phase 6 — Patient account
 
@@ -158,3 +159,6 @@ Design passes · accessibility (Lighthouse ≥ 95, keyboard-only booking) · REA
 on **Postgres 17** (same major version, no migration drift), run `prisma migrate deploy` and the
 seed against it, then point the deployed API at it. Migrations applying cleanly to a brand-new
 database is itself the proof they're sound.
+
+**The client is unlisted until this phase.** `client/public/robots.txt` and the `noindex` meta
+in `client/index.html` come off when the API it calls is actually there — not before.

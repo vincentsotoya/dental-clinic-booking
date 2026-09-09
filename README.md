@@ -99,15 +99,20 @@ from a machine in neither zone.
 |---|---|---|
 | 0 | Domain model, ADRs, repo setup | ✅ |
 | 1 | Schema, migration, exclusion constraints, seed | ✅ |
-| 2 | Availability engine | 🔨 engine done; HTTP endpoint next |
-| 3 | Auth (Better Auth) | ⬜ |
-| 4 | Booking API | ⬜ |
-| 5 | Patient frontend — *first shippable state* | ⬜ |
+| 2 | Availability engine | ✅ |
+| 3 | Auth (Better Auth) | ✅ |
+| 4 | Booking API | ✅ |
+| 5 | Patient frontend — *first shippable state* | 🔨 built; deploying |
 | 6–12 | Account, admin, clinical records, payments, reminders, polish | ⬜ |
 
-What runs today: the schema and its constraints, a seeded fictional clinic, `GET /api/health`, and
-75 passing tests covering interval algebra, timezone handling and the availability engine. There is
-no booking endpoint and no user interface yet.
+What runs today: the schema and its constraints, a seeded fictional clinic, the availability engine
+behind `GET /api/availability`, sessions over Better Auth, and book, list, cancel and reschedule —
+each change appended to an event log inside the transaction that made it. On top of that a React
+client that walks a patient from a treatment to a confirmed appointment, with the whole booking in
+the URL so a half-finished one is a link.
+
+442 tests, and a set of `db:*` scripts that put the claims to real Postgres rather than to a mock:
+the exclusion constraint refusing a double-booking is a rejected row, not an assertion.
 
 Full plan in [`docs/roadmap.md`](docs/roadmap.md); current state in
 [`PROGRESS.md`](PROGRESS.md).
@@ -193,6 +198,17 @@ while the data on disk is wrong.
 `server/src/db.ts` pins the session with `options: '-c timezone=UTC'`. Hosted Postgres defaults to
 UTC, so this bug disappears in production and only ever bites locally — the worst way round. Any
 second connection path added later needs the same option.
+
+## Deploying
+
+The client deploys to Vercel from `vercel.json` at the repo root — root `npm install`,
+`vite build` in the client workspace, `client/dist` as the output, and one rewrite so a deep link
+like `/book?service=routine-exam&date=2026-09-15` reaches the SPA instead of a 404. `shared`
+exports TypeScript source rather than a build artefact, so nothing has to be built before it.
+
+**The deployed client has no API yet.** The server and its database go hosted in Phase 11, so every
+page renders, asks for `/api/…`, gets a 404 and shows its load-failure state. That is what
+`client/public/robots.txt` and the `noindex` meta are for; both come off when the API is live.
 
 ## Layout
 
