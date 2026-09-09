@@ -24,8 +24,14 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 
+/** The four questions, in the order they are asked. */
+const QUESTIONS = ['service', 'provider', 'date', 'time'] as const
+
+/** A question the patient answers. `confirm` reviews the answers; it is not one. */
+export type Question = (typeof QUESTIONS)[number]
+
 /** Which question the patient is being asked. Derived, never stored. */
-export type BookingStep = 'service' | 'provider' | 'date' | 'time' | 'confirm'
+export type BookingStep = Question | 'confirm'
 
 export const ANY_PROVIDER = 'any'
 
@@ -40,14 +46,21 @@ export type BookingChoices = {
   at: string | null
 }
 
-const ORDER: BookingStep[] = ['service', 'provider', 'date', 'time', 'confirm']
+const ORDER: BookingStep[] = [...QUESTIONS, 'confirm']
 
-/** Everything a later step depends on, cleared when an earlier answer changes. */
-const DOWNSTREAM: Record<Exclude<BookingStep, 'confirm'>, (keyof BookingChoices)[]> = {
-  service: ['provider', 'date', 'at'],
-  provider: ['date', 'at'],
-  date: ['at'],
-  time: [],
+/** Which parameter carries each question's answer. Only `time` differs. */
+const ANSWER: Record<Question, keyof BookingChoices> = {
+  service: 'service',
+  provider: 'provider',
+  date: 'date',
+  time: 'at',
+}
+
+// Dependency is position: every later question is asked in terms of this one's
+// answer. Deriving it from `QUESTIONS` rather than tabling it keeps the order
+// stated once — a table and a list that disagree is a class of bug, not a typo.
+function downstreamOf(target: Question): Question[] {
+  return QUESTIONS.slice(QUESTIONS.indexOf(target) + 1)
 }
 
 export function useBookingParams() {
@@ -76,6 +89,8 @@ export function useBookingParams() {
           ? 'time'
           : 'confirm'
 
+  const stepIndex = ORDER.indexOf(step)
+
   /**
    * Answer one question and discard everything downstream of it.
    *
@@ -84,12 +99,12 @@ export function useBookingParams() {
    * carrying it forward would send a stale instant to the confirm step.
    */
   const choose = useCallback(
-    (key: Exclude<BookingStep, 'confirm'>, value: string) => {
+    (key: Question, value: string) => {
       setParams(
         (previous) => {
           const next = new URLSearchParams(previous)
-          next.set(key === 'time' ? 'at' : key, value)
-          for (const stale of DOWNSTREAM[key]) next.delete(stale)
+          next.set(ANSWER[key], value)
+          for (const later of downstreamOf(key)) next.delete(ANSWER[later])
           return next
         },
         { replace: false },
@@ -100,15 +115,43 @@ export function useBookingParams() {
 
   /** Go back to a question, forgetting the answers that depended on it. */
   const revise = useCallback(
-    (target: Exclude<BookingStep, 'confirm'>) => {
+    (target: Question) => {
       setParams((previous) => {
         const next = new URLSearchParams(previous)
-        next.delete(target === 'time' ? 'at' : target)
-        for (const stale of DOWNSTREAM[target]) next.delete(stale)
+        next.delete(ANSWER[target])
+        for (const later of downstreamOf(target)) next.delete(ANSWER[later])
         return next
       })
     },
     [setParams],
+  )
+
+  // The question before this one, or null at the first — index -1 reads
+  // undefined. Derived from the step rather than from history, because the
+  // sign-in round trip leaves entries that are not the flow's own: `back()` at
+  // the confirm step would return to the sign-in screen.
+  const previous = QUESTIONS[stepIndex - 1] ?? null
+
+  /**
+   * Back one question, by forgetting its answer.
+   *
+   * Clears exactly one answer, never a cascade: the step is the first
+   * unanswered question, so everything after `previous` is already blank by the
+   * time this can be pressed.
+   */
+  const back = useCallback(() => {
+    if (previous) revise(previous)
+  }, [previous, revise])
+
+  /**
+   * The answers `revise(target)` would discard besides the target's own.
+   *
+   * Empty for the most recent answer, which is what lets the trail jump
+   * straight to it instead of asking.
+   */
+  const discards = useCallback(
+    (target: Question) => downstreamOf(target).filter((later) => choices[ANSWER[later]] !== null),
+    [choices],
   )
 
   /**
@@ -126,5 +169,16 @@ export function useBookingParams() {
     })
   }, [setParams])
 
-  return { choices, step, choose, revise, releaseSlot, stepIndex: ORDER.indexOf(step), ORDER }
+  return {
+    choices,
+    step,
+    stepIndex,
+    previous,
+    choose,
+    revise,
+    back,
+    discards,
+    releaseSlot,
+    ORDER,
+  }
 }

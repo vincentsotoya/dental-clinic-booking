@@ -124,11 +124,17 @@ function json(body: unknown) {
   })
 }
 
-function at(url: string) {
+// `from` puts an entry the flow does not own behind it, which is what the
+// sign-in round trip leaves in history.
+function at(url: string, from?: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const router = createMemoryRouter([{ path: '/book', element: <Book /> }], {
-    initialEntries: [url],
-  })
+  const router = createMemoryRouter(
+    [
+      { path: '/book', element: <Book /> },
+      { path: '/sign-in', element: <p>Sign in</p> },
+    ],
+    { initialEntries: from ? [from, url] : [url] },
+  )
 
   render(
     <QueryClientProvider client={queryClient}>
@@ -309,5 +315,114 @@ describe('moving between steps', () => {
 
     await screen.findByRole('button', { name: '9:00 AM' })
     expect(document.title).toContain('Pick a time')
+  })
+})
+
+// Position and revision were one control until `docs/booking-composition.md`
+// split them: a filled crumb was the only way backwards, and pressing one
+// discarded every answer downstream without saying so.
+describe('position, Back and the trail', () => {
+  const CHOSEN = `/book?service=routine-exam&provider=any&date=${DAY}&at=${NINE_AM}`
+
+  function saidOutLoud(text: RegExp) {
+    return screen.getAllByText(text).filter((el) => !el.closest('[aria-hidden="true"]'))
+  }
+
+  it('draws the position without saying it twice', async () => {
+    at(`/book?service=routine-exam&provider=any&date=${DAY}`)
+    await screen.findByRole('button', { name: '9:00 AM' })
+
+    // Drawn for eyes, and announced once — by the live region, which is the
+    // half that was already there.
+    expect(screen.getByText('Step 4 of 5')).toBeDefined()
+    const spoken = saidOutLoud(/Step 4 of 5/)
+    expect(spoken).toHaveLength(1)
+    expect(spoken[0]?.getAttribute('aria-live')).toBe('polite')
+  })
+
+  it('offers no way back from the first question', async () => {
+    at('/book')
+
+    await screen.findByRole('button', { name: /Routine Exam/ })
+    expect(screen.queryByRole('button', { name: /^Back/ })).toBeNull()
+  })
+
+  it('names what Back goes back to, and clears only that answer', async () => {
+    const router = at(`/book?service=routine-exam&provider=any&date=${DAY}`)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Back to the day' }))
+
+    await screen.findByRole('heading', { name: 'Pick a day' })
+    expect(router.state.location.search).toContain('service=routine-exam')
+    expect(router.state.location.search).toContain('provider=any')
+    expect(router.state.location.search).not.toContain('date=')
+  })
+
+  it('says what a jump will clear, and clears nothing until it is confirmed', async () => {
+    const router = at(CHOSEN)
+
+    await screen.findByText('Dr Amara Osei')
+    const before = router.state.location.search
+    fireEvent.click(screen.getByRole('button', { name: 'Routine Exam — change this' }))
+
+    expect(screen.getByText('Change the treatment?')).toBeDefined()
+    expect(screen.getByText(/This clears who you're seeing, the day and the time\./)).toBeDefined()
+    expect(router.state.location.search).toBe(before)
+    // The question is below the crumb that was pressed, so being told about it
+    // is the point of moving focus here. Asserted as the element, not as text:
+    // `document.body` contains that text too, and would pass without a move.
+    expect(document.activeElement).toBe(screen.getByRole('group', { name: 'Change the treatment?' }))
+  })
+
+  it('makes the jump once it is confirmed', async () => {
+    const router = at(CHOSEN)
+
+    await screen.findByText('Dr Amara Osei')
+    fireEvent.click(screen.getByRole('button', { name: 'Routine Exam — change this' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Change the treatment' }))
+
+    await screen.findByRole('heading', { name: 'What do you need?' })
+    expect(router.state.location.search).not.toContain('service=')
+    expect(router.state.location.search).not.toContain('at=')
+  })
+
+  it('leaves the booking untouched when the answer is kept', async () => {
+    const router = at(CHOSEN)
+
+    await screen.findByText('Dr Amara Osei')
+    const crumb = screen.getByRole('button', { name: 'Routine Exam — change this' })
+    fireEvent.click(crumb)
+    fireEvent.click(screen.getByRole('button', { name: 'Keep it' }))
+
+    expect(screen.queryByText('Change the treatment?')).toBeNull()
+    expect(router.state.location.search).toBe(CHOSEN.split('?')[1] ? `?${CHOSEN.split('?')[1]}` : '')
+    expect(document.activeElement).toBe(crumb)
+  })
+
+  // The reason Back is derived from the step and not from history: after
+  // signing in, the entry behind the flow is the sign-in screen.
+  it('goes back a question, not a history entry', async () => {
+    const router = at(CHOSEN, `/sign-in?next=${encodeURIComponent(CHOSEN)}`)
+
+    await screen.findByText('Dr Amara Osei')
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the time' }))
+
+    expect(await screen.findByRole('button', { name: '10:00 AM' })).toBeDefined()
+    expect(router.state.location.pathname).toBe('/book')
+    expect(router.state.location.search).toContain(`date=${DAY}`)
+    expect(router.state.location.search).not.toContain('at=')
+  })
+
+  // Nothing depends on it, so there is nothing to warn about.
+  it('jumps straight to the most recent choice without asking', async () => {
+    const router = at(CHOSEN)
+
+    fireEvent.click(await screen.findByRole('button', { name: '9:00 AM — change this' }))
+
+    // Back on the times for that day, which is what the crumb pointed at.
+    expect(await screen.findByRole('button', { name: '10:00 AM' })).toBeDefined()
+    expect(screen.queryByText(/^Change /)).toBeNull()
+    expect(router.state.location.search).toContain(`date=${DAY}`)
+    expect(router.state.location.search).not.toContain('at=')
   })
 })

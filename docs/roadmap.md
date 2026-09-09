@@ -122,8 +122,9 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
       title. The visible step indicator belongs to the composition session below
 - [x] **(S)** The composition session — the one thing `/design-taste-frontend` explicitly excluded.
       Settled in `docs/booking-composition.md`: ask what the patient knows, not what the clinic files
-- [ ] **(C)** Build it — two doors at step 1, the morning/afternoon split at step 4, and position
-      and revision split into three controls
+- [x] **(C)** Build it — two doors at step 1, the morning/afternoon split at step 4, and position
+      and revision split into three controls: a progress bar, a Back that clears one answer, and a
+      trail that says what a jump will clear
 - [ ] **(S)** `/review-animations` — after the composition session, not before: motion on screens
       about to be restructured is motion that will not exist
 - [ ] **(V)** 🎯 Deploy

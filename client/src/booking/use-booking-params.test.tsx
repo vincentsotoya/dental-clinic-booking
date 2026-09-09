@@ -143,3 +143,60 @@ describe('the booking survives a round trip through the URL', () => {
     expect(latest.step).toBe('provider')
   })
 })
+
+// Back is one question, not one history entry: signing in pushes entries that
+// are not the flow's own, so `history.back()` from the confirm step would land
+// on the sign-in screen rather than on the times.
+describe('back', () => {
+  it('has nowhere to go from the first question', () => {
+    at('/book')
+    expect(latest.previous).toBeNull()
+  })
+
+  it('clears one answer and leaves everything before it alone', () => {
+    at('/book?service=routine-exam&provider=any&date=2026-09-10')
+
+    expect(latest.previous).toBe('date')
+    act(() => latest.back())
+
+    expect(latest.step).toBe('date')
+    expect(latest.choices.service).toBe('routine-exam')
+    expect(latest.choices.provider).toBe('any')
+    expect(latest.choices.date).toBeNull()
+  })
+
+  // The step is the first unanswered question, so there is never anything after
+  // `previous` for a cascade to reach.
+  it('drops only the instant when it is pressed from the confirm step', () => {
+    at('/book?service=routine-exam&provider=any&date=2026-09-10&at=2026-09-10T13:00:00.000Z')
+
+    act(() => latest.back())
+
+    expect(latest.step).toBe('time')
+    expect(latest.choices.date).toBe('2026-09-10')
+    expect(latest.choices.at).toBeNull()
+  })
+})
+
+// What the trail has to say out loud before it jumps.
+describe('discards', () => {
+  it('names the answers a jump would take with it', () => {
+    at('/book?service=routine-exam&provider=any&date=2026-09-10&at=2026-09-10T13:00:00.000Z')
+
+    expect(latest.discards('service')).toEqual(['provider', 'date', 'time'])
+    expect(latest.discards('date')).toEqual(['time'])
+  })
+
+  it('counts only the answers that were actually given', () => {
+    at('/book?service=routine-exam&provider=any')
+
+    expect(latest.discards('service')).toEqual(['provider'])
+  })
+
+  // Which is what lets the most recent choice be jumped to without a question.
+  it('is empty for the last answer', () => {
+    at('/book?service=routine-exam&provider=any&date=2026-09-10&at=2026-09-10T13:00:00.000Z')
+
+    expect(latest.discards('time')).toEqual([])
+  })
+})

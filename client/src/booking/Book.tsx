@@ -19,24 +19,14 @@ import { ChooseProvider } from './ChooseProvider'
 import { ChooseDate } from './ChooseDate'
 import { ChooseTime } from './ChooseTime'
 import { Confirm } from './Confirm'
+import { QUESTION } from './questions'
+import { StepHeader } from './StepHeader'
 import { StepTrail } from './StepTrail'
-import { useBookingParams, type BookingStep } from './use-booking-params'
-
-// Nothing is ever skipped and the order is fixed (see `use-booking-params.ts`),
-// so a step's position is safe to say out loud.
-const QUESTIONS: Record<BookingStep, string> = {
-  service: 'What do you need?',
-  provider: 'Who would you like to see?',
-  date: 'Pick a day',
-  time: 'Pick a time',
-  confirm: 'Does this look right?',
-}
-
-const ORDER = Object.keys(QUESTIONS) as BookingStep[]
+import { useBookingParams } from './use-booking-params'
 
 export default function Book() {
   const booking = useBookingParams()
-  const { choices, step } = booking
+  const { choices, step, stepIndex, ORDER } = booking
 
   // Which month the calendar is showing. The only piece of flow state not in
   // the URL: it is a view of the answer, not part of it, and a patient who
@@ -53,10 +43,13 @@ export default function Book() {
     choices.service ? { service: choices.service, from: range.from, to: range.to } : null,
   )
 
-  const announcement = `Step ${ORDER.indexOf(step) + 1} of ${ORDER.length}. ${QUESTIONS[step]}`
+  // Nothing is ever skipped and the order is fixed (see `use-booking-params.ts`),
+  // so a step's position is safe to say out loud. `StepHeader` draws the same
+  // count from the same numbers rather than keeping its own.
+  const announcement = `Step ${stepIndex + 1} of ${ORDER.length}. ${QUESTION[step]}`
 
   useEffect(() => {
-    document.title = `${QUESTIONS[step]} — Book an appointment · Quillon Dental`
+    document.title = `${QUESTION[step]} — Book an appointment · Quillon Dental`
   }, [step])
 
   // The step swaps inside this container, so the button that was just pressed
@@ -76,6 +69,8 @@ export default function Book() {
       <h1 className="font-display text-3xl leading-tight font-extrabold tracking-[-0.03em] text-balance sm:text-4xl">
         Book an appointment
       </h1>
+
+      <StepHeader booking={booking} />
 
       <StepTrail booking={booking} service={service} availability={availability.data} />
 

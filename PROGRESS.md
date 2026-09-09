@@ -103,11 +103,6 @@ Phase 5, in progress:
       the page steals focus from a patient who just arrived
 - [x] **(S)** `/impeccable shape` — the composition session the design system deferred, settled in
       `docs/booking-composition.md`. No code: shape returns a brief and stops
-
-## Current Task
-
-Build the three changes in `docs/booking-composition.md`, in that order:
-
 - [x] **(C)** Step 1 — two doors above a deliberately ordered list, treatment name over price.
       Order is a slug list in `ChooseService.tsx`; the doors are ADR-0010
 - [x] 🎯 9 tests, falsified three ways: stop sorting and the list leads with Child Cleaning again;
@@ -122,12 +117,25 @@ Build the three changes in `docs/booking-composition.md`, in that order:
 - [x] 🎯 Against real rows: 9 September returns 17 distinct times, 4 morning / 13 afternoon, and
       the boundary falls where the clinic's lunch actually is — morning ends 11:00 AM, afternoon
       starts 1:00 PM. Nothing tuned to make that land
-- [ ] **(C)** Position and revision split into three controls: progress, Back, trail
+- [x] **(C)** Position and revision split into three controls — `StepHeader.tsx` carries the
+      progress bar and Back, `StepTrail.tsx` still jumps but says what a jump will clear first,
+      and `questions.ts` holds the flow's wording once. Back is derived from the step, never
+      from history
+- [x] 🎯 14 tests, falsified seven ways, one red run each: a history-based Back turns the sign-in
+      round trip red; an off-by-one `previous` turns five red; dropping `aria-hidden` says the
+      position twice; jumping without asking turns three red; asking about the last answer turns
+      one red; and each of the two focus moves turns one
+- [x] 🎯 In the built CSS, not in the class names: `--spacing:.25rem` against `.min-h-11` and
+      `.h-11` puts every new control at 44px, and the progress bar's width transition exists
+      only inside `@media (prefers-reduced-motion:no-preference)`
+
+## Current Task
+
+- [ ] **(S)** `/review-animations` — held until after the composition session, not before:
+      motion on screens about to be restructured is motion that will not exist. They exist now
 
 ## Next
 
-- [ ] **(S)** `/review-animations` — moved to after the composition session, not before:
-      reviewing motion on screens about to be restructured reviews work that will not exist
 - [ ] **(V)** 🎯 Deploy — the last item in Phase 5
 
 ## Active Blockers
@@ -140,10 +148,10 @@ Build the three changes in `docs/booking-composition.md`, in that order:
   choice in `docs/decisions-log.md` leaned on the booking flow being yours
 - **The critique's browser half never ran.** No browser automation was exposed and `detect.mjs`'s
   URL mode needs puppeteer, which is not a dependency. Contrast, spacing rhythm and responsive
-  behaviour are unmeasured, and four touch-target numbers are computed from Tailwind classes
-  rather than seen: calendar cell ~32px, `StepTrail` crumb ~28px, time pill ~42px, confirm button
-  40px. **Vincent verifies these in devtools at 390px and 1440px** before `/impeccable adapt` acts
-  on them
+  behaviour are unmeasured. Two of its four touch-target numbers are now settled in the built CSS
+  — the trail crumb and the time pill are 44px — and two are not: calendar cell ~32px and confirm
+  button 40px, both still read off Tailwind classes. **Vincent verifies these in devtools at 390px
+  and 1440px** before `/impeccable adapt` acts on them
 - **A month of availability is 352KB uncompressed** for a popular service — 1,482 slots, of which
   the calendar needs only the 20 distinct dates. Tolerable gzipped, and the fix is a days-only
   projection on the server rather than anything on the client
@@ -154,20 +162,29 @@ Build the three changes in `docs/booking-composition.md`, in that order:
 
 ## Recent Decisions
 
-- **Noon is not an arbitrary halving — it is where the clinic's lunch is.** The morning/afternoon
-  split had to be computed through `clinicHour`, in the zone the response echoes: this machine
-  renders a 9:00 AM clinic slot as 22:00, so a browser-zone split files the whole morning under
-  afternoon. The same bug `clinic-time.ts` already exists to prevent, one level up
-- **A disclosure counts what it is holding.** "Show all 13 afternoon times" rather than "Show
-  more": a collapse that hides an unknown quantity is a worse trade than the scroll it saved.
-  `aria-expanded` is what says the list grew, so the announcement cannot drift from the button
+- **Back is one question, not one history entry.** The sign-in round trip leaves entries in
+  history that are not the flow's own, so `history.back()` from the confirm step returns to the
+  sign-in screen. Deriving the destination from the step and clearing exactly one answer is the
+  only version compatible with a step derived from the choices — and it clears exactly one because
+  the step is the *first unanswered* question, so nothing after it is set
+- **The drawn progress bar is decoration; the live region is the progress indicator.** `Book.tsx`
+  already announces "Step 4 of 5", so the visible one is `aria-hidden` — two of them say the
+  position twice. Both count from the same `stepIndex`, so they cannot drift
+- **A jump says what it will clear, except when it clears nothing.** Which is always the most
+  recent answer, so the common revision costs no extra press. The confirmation is a disclosure
+  under the trail rather than a modal — the same `aria-expanded` vocabulary step 4 already uses
+- **The accessible name goes on `aria-label`, not in an `sr-only` span.** The name computation
+  joins across the element boundary without a space: "Back" plus " to the day" came out
+  `"Backto the day"`, measured, not guessed
+- **The question order is stated once.** `DOWNSTREAM` was a table restating the order in
+  `QUESTIONS`; `downstreamOf` derives it, and `previous` and `discards` read the same list.
+  A table and a list that disagree is a class of bug, not a typo
+- **Step 1 and step 4's decisions live in `docs/booking-composition.md`** — the doors, the noon
+  split computed through `clinicHour`, the counted disclosure and the service-order slug list,
+  each with the reasoning that settled it
 - **The shortcut stays away when there is no list to skip.** "Earliest" appears only past six
   times; on a short day it is one more thing to read rather than a saving. Same shape as step 1's
   doors — a shortcut duplicates a row on purpose, and earns its place only where scanning costs
-- **The service order is a slug list in the client, not a `sortOrder` column.** Same precedent as
-  Home's featured four: an editorial choice belongs where editorial choices already live, and no
-  schema change buys anything until the front desk can set it in Phase 7. An unknown slug sorts to
-  the end — a treatment the clinic adds must not vanish because a list in the client is stale
 - **Two of ten services are named at the front door, and that needed an ADR** (ADR-0010). The doors
   route to a visit type, never a symptom to a treatment: the first is triage a receptionist does,
   the second is a treatment plan the system may not imply
