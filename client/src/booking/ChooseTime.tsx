@@ -70,9 +70,7 @@ export function ChooseTime({ availability, provider, date, onChoose }: Props) {
             <Button
               size="lg"
               onClick={() => onChoose(earliest)}
-              // h-11 over the variant's h-10: the primary action of the step,
-              // on a screen a patient reaches one-handed.
-              className="mt-6 h-11 w-full tabular-nums sm:w-auto"
+              className="mt-6 w-full tabular-nums sm:w-auto"
             >
               Earliest — {formatClinicTime(earliest, zone)}
             </Button>

@@ -62,4 +62,10 @@ describe('the button follows the design system', () => {
     // The only feedback a button gives on a phone, where hover never fires.
     expect(button).toMatch(/pressable/)
   })
+
+  it('sizes its primary action at the 44px the rest of the flow meets', () => {
+    // The generator ships lg at h-10. Regenerating restores it at all eight
+    // call sites at once, every one of them a primary action.
+    expect(button).toMatch(/lg: "h-11 /)
+  })
 })
