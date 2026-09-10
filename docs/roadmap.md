@@ -128,8 +128,9 @@ middleware had no first caller. Cancel and reschedule dictate its signature.
 - [x] **(S)** `/review-animations` — Block, six findings, all applied: the progress bar scales
       rather than resizes, the button names what it transitions, every tappable control answers a
       press, and reduced motion keeps colour while dropping movement
-- [🔨] **(V)** 🎯 Deploy — the build is proven against `vercel.json`'s own rewrite and the client
-      is unlisted; the publish itself needs Vincent's Vercel login
+- [x] **(V)** 🎯 Deploy — live and unlisted, and the rewrite holds on Vercel's edge as it did
+      against the local build: a deep link returns `/`'s shell byte for byte, `robots.txt` is
+      served as a file, `/api/*` 404s
 
 ## Phase 6 — Patient account
 

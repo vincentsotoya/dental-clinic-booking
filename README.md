@@ -6,9 +6,11 @@ genuinely available slot online, and the clinic manages the schedule behind it.
 Built as a portfolio project on a PERN stack — PostgreSQL, Express, React, Node — with a
 deliberate emphasis on getting the hard part right rather than the visible part first.
 
-> **Status: in progress.** Phase 2 of 12. The database and the availability engine are done and
-> tested; there is no UI yet and nothing is deployed. See [Status](#status) for exactly what
-> works today. All patient data in this repository is fictional and seeded.
+> **Status: in progress.** Phase 5 of 12. The database, the availability engine, the booking API
+> and the patient client are done and tested, and the client is deployed — unlisted, because its
+> API is not hosted until Phase 11 and every page it serves ends in a load failure until then. See
+> [Status](#status) for exactly what works today. All patient data in this repository is fictional
+> and seeded.
 
 ---
 
@@ -102,7 +104,7 @@ from a machine in neither zone.
 | 2 | Availability engine | ✅ |
 | 3 | Auth (Better Auth) | ✅ |
 | 4 | Booking API | ✅ |
-| 5 | Patient frontend — *first shippable state* | 🔨 built; deploying |
+| 5 | Patient frontend — *first shippable state* | 🔨 built; deployed unlisted |
 | 6–12 | Account, admin, clinical records, payments, reminders, polish | ⬜ |
 
 What runs today: the schema and its constraints, a seeded fictional clinic, the availability engine
@@ -201,10 +203,14 @@ second connection path added later needs the same option.
 
 ## Deploying
 
-The client deploys to Vercel from `vercel.json` at the repo root — root `npm install`,
+The client is deployed to Vercel from `vercel.json` at the repo root — root `npm install`,
 `vite build` in the client workspace, `client/dist` as the output, and one rewrite so a deep link
 like `/book?service=routine-exam&date=2026-09-15` reaches the SPA instead of a 404. `shared`
 exports TypeScript source rather than a build artefact, so nothing has to be built before it.
+
+Three claims the local build could only make about itself, checked against the live URL and holding
+on Vercel's edge: a deep link returns `/`'s shell byte for byte, `robots.txt` is served as a file
+rather than swallowed by the rewrite, and `/api/*` answers 404 instead of matching it.
 
 **The deployed client has no API yet.** The server and its database go hosted in Phase 11, so every
 page renders, asks for `/api/…`, gets a 404 and shows its load-failure state. That is what
