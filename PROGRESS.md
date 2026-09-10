@@ -135,8 +135,6 @@ Phase 5, in progress:
       with no `transform` in it. Falsified: regenerating `button.tsx` from the registry turns
       seven red, two of them the new ones
 
-## Current Task
-
 - [x] **(C)** Deploy, everything up to the publish — `client/public/robots.txt` and a `noindex`
       meta unlist the site while it has no API, and the README's status table no longer says there
       is no user interface
@@ -144,8 +142,31 @@ Phase 5, in progress:
       two deep links return the app shell, `/api/*` returns 404, and `robots.txt` is served as a
       file rather than swallowed by the SPA rewrite. A 404's HTML body fails `apiError.safeParse`,
       so the shell degrades to "we couldn't load" with a retry rather than crashing
-- [ ] **(V)** 🎯 The publish itself — import the repo at vercel.com/new, framework preset "Other",
-      root directory left at the repo root. Needs a Vercel login, which is not on this machine
+- [x] **(V)** Published to Vercel from the repo root, preset "Other", no environment variables to
+      set — the client calls `/api` same-origin, so there is no base URL to configure
+- [x] 🎯 The same rewrite on Vercel's edge, against the live URL: `/`, `/dentists` and a `/book`
+      deep link return one identical shell, `robots.txt` is served as a file, `/api/*` 404s, and
+      the shipped CSS carries `.pressable:active{transform:scale(.97)}` and `--spacing:.25rem`
+
+- [x] **(C)** `lg` is 44px, not 40 — the size every primary action uses, at all eight call sites.
+      `ChooseTime` had already overridden the variant for one button with the same argument; a
+      second call site making the same override is the variant being wrong
+- [x] 🎯 Falsified: restore `h-10` and exactly the new invariant turns red. In the shipped bundle
+      rather than the source, `h-11 rounded-pill px-6`. The stylesheet is unchanged because
+      `.h-11` was already emitted for the trail crumb — this change is in the class the button
+      asks for, so the bundle is where it shows
+
+- [x] **(V)** 🎯 The calendar cell measured: **32px at both 390px and 1440px**, which falsified the
+      reasoning that it grew with the viewport. `root: "w-fit"` shrink-wrapped the grid to
+      `--cell-size`, so the column never widened
+- [x] **(C)** The calendar sizes its days from the column instead — `w-full max-w-sm`, square kept.
+      43px at 390px and 51px at 1440px, up from 32px, and it cannot overflow: raising
+      `--cell-size` to 44px alone would have needed 308px of row against 302px available at 390px
+- [x] 🎯 Falsified: restore `w-fit` and exactly the new invariant turns red
+
+## Current Task
+
+- [ ] **(C)** `/impeccable adapt` — the P1s the critique raised that are not touch targets
 
 ## Next
 
@@ -157,26 +178,33 @@ Phase 5, in progress:
 - **The accent hue is unsettled.** Two reference sites pointed away from cobalt; all three
   candidates were measured and none is disqualified on contrast. Cobalt ships until it is decided,
   and the decision is one edit to `index.css`
-- **Does (V) still describe the roadmap?** The booking flow and the auth screens are written and
-  committed, so the throw-it-away option is gone and Deploy is the only **(V)** left. The router
-  choice in `docs/decisions-log.md` leaned on the booking flow being yours
 - **The critique's browser half never ran.** No browser automation was exposed and `detect.mjs`'s
   URL mode needs puppeteer, which is not a dependency. Contrast, spacing rhythm and responsive
   behaviour are unmeasured. Two of its four touch-target numbers are now settled in the built CSS
-  — the trail crumb and the time pill are 44px — and two are not: calendar cell ~32px and confirm
-  button 40px, both still read off Tailwind classes. **Vincent verifies these in devtools at 390px
-  and 1440px** before `/impeccable adapt` acts on them
+  — its four touch-target numbers are now settled and fixed. Contrast, spacing rhythm and
+  responsive behaviour are still unmeasured, and still need a browser
 - **A month of availability is 352KB uncompressed** for a popular service — 1,482 slots, of which
   the calendar needs only the 20 distinct dates. Tolerable gzipped, and the fix is a days-only
   projection on the server rather than anything on the client
-- **The deployed site needs an API that is not deployed.** The public pages and `/book` read the
-  catalogue, so on Vercel they render their copy, their skeletons and then "We couldn't load our
+- **The deployed site needs an API that is not deployed.** Seen live, not predicted: the public
+  pages and `/book` render their copy, their skeletons and then "We couldn't load our
   treatments". Phase 11 hosting the server clears it. Until then the site is deliberately unlisted
   rather than reverted — the transcript was the thing being removed, and a portfolio piece found
-  in a broken state reads as broken software
+  in a broken state reads as broken software. The Vercel project is named
+  `dental-clinic-booking-server` but serves the client, so Phase 11 wants its own project rather
+  than this one
 
 ## Recent Decisions
 
+- **The calendar's days are sized by the column, not by a token.** 44px squares need 308px of row;
+  390px offers 302px, and `min-w` means the row cannot shrink, so raising `--cell-size` would have
+  traded a small tap target for a horizontal overflow on every phone. Filling the card degrades
+  instead: 43px at 390px, 51px from 430px up, square at every width. The 0.9px under 44 at 390px is
+  accepted — the alternative was spending the page's mobile gutters to buy it
+- **The live URL waits for its API before the README names it.** The pipeline is worth proving now,
+  but a link that fails on every page is worse than no link on a piece meant to be read by an
+  interviewer. It goes in with the edit that removes `robots.txt` and the `noindex` meta, so the
+  three move together
 - **The first deploy ships unlisted, not public.** The roadmap put Deploy in Phase 5 and hosting in
   Phase 11, which means a live URL that fails on every page for several phases. `robots.txt` and
   `noindex` are what let both be true: the pipeline is proven now, on the push where a Vercel

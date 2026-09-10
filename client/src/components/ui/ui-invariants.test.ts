@@ -69,3 +69,13 @@ describe('the button follows the design system', () => {
     expect(button).toMatch(/lg: "h-11 /)
   })
 })
+
+describe('the calendar sizes its days from the column', () => {
+  const calendar = components.find(([file]) => file === 'calendar.tsx')?.[1] ?? ''
+
+  it('does not shrink-wrap to the cell floor', () => {
+    // The generator's `w-fit` pinned every day to --cell-size — 32px measured,
+    // at 390px and at 1440px alike.
+    expect(calendar).not.toMatch(/"w-fit"/)
+  })
+})

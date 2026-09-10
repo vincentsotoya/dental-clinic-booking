@@ -45,7 +45,10 @@ function Calendar({
         ...formatters,
       }}
       classNames={{
-        root: cn("w-fit", defaultClassNames.root),
+        // Sized by the column, not by --cell-size: `w-fit` shrink-wrapped
+        // every day to the 32px floor. The cap stops a wide card drawing 95px
+        // days; `mx-auto` at the call site centres what is left.
+        root: cn("w-full max-w-sm", defaultClassNames.root),
         months: cn(
           "relative flex flex-col gap-4 md:flex-row",
           defaultClassNames.months
