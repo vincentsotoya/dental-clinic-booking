@@ -164,14 +164,27 @@ Phase 5, in progress:
       `--cell-size` to 44px alone would have needed 308px of row against 302px available at 390px
 - [x] 🎯 Falsified: restore `w-fit` and exactly the new invariant turns red
 
+- [x] **(C)** The critique's last P1, the cheap half: `/appointments?booked=` now confirms the
+      booking by name, marks its row in words as well as colour, moves focus to the confirmation,
+      and says no email is coming. The dedicated confirmation screen with an `.ics` is Phase 6's.
+      All four P1s are closed
+- [x] 🎯 6 tests, falsified three ways: match on the parameter instead of the id and a typed URL
+      confirms a stranger's booking; drop the `CONFIRMED` check and a cancelled one is still
+      "booked"; drop the `focus()` and focus stays on `<body>`
+- [x] 🎯 Against real rows: the id `POST /api/appointments` returned was a `CONFIRMED` row in the
+      list's default window, and after a real cancel it was still there as `CANCELLED`, so the
+      status check is needed against real data, not only in the fixture. Proof rows deleted after
+
 ## Current Task
 
-- [ ] **(C)** `/impeccable adapt` — the P1s the critique raised that are not touch targets
+- [ ] **(C)** The critique's P2 — step 4 promises "Nothing is held until you confirm" and the
+      confirm step says "before we can hold this". One word: *book*
 
 ## Next
 
 - [ ] **Phase 6** — the patient account: my appointments, cancel, reschedule, profile and
-      insurance details. The Phase 4 endpoints are already built and proven; this is their screens
+      insurance details. The Phase 4 endpoints are already built and proven; this is their screens,
+      plus the dedicated booking confirmation with an `.ics` download
 
 ## Active Blockers
 
@@ -179,10 +192,9 @@ Phase 5, in progress:
   candidates were measured and none is disqualified on contrast. Cobalt ships until it is decided,
   and the decision is one edit to `index.css`
 - **The critique's browser half never ran.** No browser automation was exposed and `detect.mjs`'s
-  URL mode needs puppeteer, which is not a dependency. Contrast, spacing rhythm and responsive
-  behaviour are unmeasured. Two of its four touch-target numbers are now settled in the built CSS
-  — its four touch-target numbers are now settled and fixed. Contrast, spacing rhythm and
-  responsive behaviour are still unmeasured, and still need a browser
+  URL mode needs puppeteer, which is not a dependency. Its four touch-target numbers have since
+  been settled and fixed; contrast, spacing rhythm and responsive behaviour are still unmeasured,
+  and still need a browser
 - **A month of availability is 352KB uncompressed** for a popular service — 1,482 slots, of which
   the calendar needs only the 20 distinct dates. Tolerable gzipped, and the fix is a days-only
   projection on the server rather than anything on the client
@@ -196,6 +208,12 @@ Phase 5, in progress:
 
 ## Recent Decisions
 
+- **A confirmation needs a row, not a parameter.** `?booked=` is a URL anyone can type or
+  bookmark, so the message appears only when that id is one of the patient's own `CONFIRMED`
+  rows. The parameter is left in place rather than cleared: a refresh still shows something true,
+  and a cancelled booking stops being confirmed without the page doing anything
+- **The confirmation says no email is coming.** Email is Phase 10. A patient waiting for one
+  concludes the booking failed, so the page says so and makes itself the record
 - **The calendar's days are sized by the column, not by a token.** 44px squares need 308px of row;
   390px offers 302px, and `min-w` means the row cannot shrink, so raising `--cell-size` would have
   traded a small tap target for a horizontal overflow on every phone. Filling the card degrades
