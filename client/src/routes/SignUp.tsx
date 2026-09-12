@@ -76,7 +76,7 @@ export default function SignUp() {
   return (
     <AuthShell
       title="Create your account"
-      intro="It takes a moment, and it is what lets us hold an appointment in your name."
+      intro="It takes a moment, and it is what lets us book an appointment in your name."
       next={next}
       footer={
         <>

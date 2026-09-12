@@ -131,7 +131,7 @@ export function Confirm({ booking, service, availability }: Props) {
       {session.status === 'anonymous' ? (
         <div className="mt-6 rounded-card border border-border bg-card p-5">
           <p className="text-sm text-muted-foreground">
-            One more thing — we need to know who you are before we can hold this.
+            One more thing — we need to know who you are before we can book this.
           </p>
           <Button asChild className="mt-4 rounded-pill">
             {/* `next` is this exact URL, slot and all, so signing in — or

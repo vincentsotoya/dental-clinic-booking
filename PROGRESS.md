@@ -175,10 +175,16 @@ Phase 5, in progress:
       list's default window, and after a real cancel it was still there as `CANCELLED`, so the
       status check is needed against real data, not only in the fixture. Proof rows deleted after
 
+- [x] **(C)** The critique's P2, its last priority issue: *hold* now means one thing in patient
+      copy, the reservation that never exists. The confirm step and the sign-up intro say *book*,
+      which is what they do; step 4 and `AuthShell` keep *hold*, in the negative
+
 ## Current Task
 
-- [ ] **(C)** The critique's P2 — step 4 promises "Nothing is held until you confirm" and the
-      confirm step says "before we can hold this". One word: *book*
+- [ ] None. Phase 5's checklist is closed — P0, four P1s and the P2 are all shut. The next session
+      chooses: open Phase 6, or first take the critique's five Minor Observations, which nothing
+      has claimed (calendar paging to 2019, `ChooseDate` never passing `selected`, the step 1
+      skeleton's layout shift, and the notes placeholder stranded on the last screen)
 
 ## Next
 
@@ -208,6 +214,11 @@ Phase 5, in progress:
 
 ## Recent Decisions
 
+- **One word, one meaning: *hold* is the thing that never happens.** The promise "nothing is held
+  until you confirm" is only worth making if the next screen doesn't then offer to hold something.
+  Both surviving uses are negative; every place the system actually writes a row says *book*. The
+  sign-up intro was the second offender the critique didn't catch, and the confirm card had been
+  contradicting its own button — "before we can hold this" above `Sign in to book`
 - **A confirmation needs a row, not a parameter.** `?booked=` is a URL anyone can type or
   bookmark, so the message appears only when that id is one of the patient's own `CONFIRMED`
   rows. The parameter is left in place rather than cleared: a refresh still shows something true,
