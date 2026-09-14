@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
+import { SummaryList, SummaryRow } from '@/components/SummaryList'
 import { formatCivilDate, formatClinicTime } from '@/lib/clinic-time'
 import { formatDuration, formatPrice } from '@/lib/format'
 import { providerForSlot } from './slots'
@@ -89,7 +90,7 @@ export function Confirm({ booking, service, availability }: Props) {
       },
       {
         onSuccess: (result) => {
-          navigate(`/appointments?booked=${result.appointment.id}`, { replace: true })
+          navigate(`/appointments/${result.appointment.id}/confirmed`, { replace: true })
         },
       },
     )
@@ -101,9 +102,9 @@ export function Confirm({ booking, service, availability }: Props) {
         Does this look right?
       </h2>
 
-      <dl className="mt-6 divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
-        <Row label="Treatment" value={service.name} />
-        <Row
+      <SummaryList className="mt-6">
+        <SummaryRow label="Treatment" value={service.name} />
+        <SummaryRow
           label="With"
           value={
             provider
@@ -115,18 +116,18 @@ export function Confirm({ booking, service, availability }: Props) {
           // a booking and a surprise.
           note={choices.provider === ANY_PROVIDER ? 'Chosen for you — whoever was free' : undefined}
         />
-        <Row label="When" value={`${formatCivilDate(choices.date ?? '')}`} />
-        <Row
+        <SummaryRow label="When" value={`${formatCivilDate(choices.date ?? '')}`} />
+        <SummaryRow
           label="Time"
           value={timeZone ? formatClinicTime(at, timeZone) : '—'}
           note={`${formatDuration(service.durationMins)} in the chair`}
         />
-        <Row
+        <SummaryRow
           label="Price"
           value={formatPrice(service.priceCents)}
           note="List price before insurance — we record your plan, we don't estimate what it pays"
         />
-      </dl>
+      </SummaryList>
 
       {session.status === 'anonymous' ? (
         <div className="mt-6 rounded-card border border-border bg-card p-5">
@@ -214,17 +215,5 @@ function BookingFailure({ error, onPickAgain }: { error: Error; onPickAgain: () 
         )}
       </AlertDescription>
     </Alert>
-  )
-}
-
-function Row({ label, value, note }: { label: string; value: string; note?: string }) {
-  return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 p-5">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="flex min-w-0 flex-col items-end text-right">
-        <span className="font-display font-bold tracking-tight">{value}</span>
-        {note && <span className="mt-0.5 text-sm text-muted-foreground">{note}</span>}
-      </dd>
-    </div>
   )
 }

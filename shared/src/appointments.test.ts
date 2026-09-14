@@ -137,7 +137,11 @@ describe('myAppointmentsQuery', () => {
 
 describe('myAppointmentsResponse', () => {
   it('echoes the window back alongside the rows', () => {
-    const parsed = myAppointmentsResponse.parse({ when: 'past', appointments: [APPOINTMENT] })
+    const parsed = myAppointmentsResponse.parse({
+      when: 'past',
+      timeZone: 'America/New_York',
+      appointments: [APPOINTMENT],
+    })
 
     expect(parsed.when).toBe('past')
     expect(parsed.appointments).toHaveLength(1)
@@ -145,13 +149,29 @@ describe('myAppointmentsResponse', () => {
 
   it('accepts an empty list — having none is a real answer', () => {
     expect(
-      myAppointmentsResponse.safeParse({ when: 'upcoming', appointments: [] }).success,
+      myAppointmentsResponse.safeParse({
+        when: 'upcoming',
+        timeZone: 'America/New_York',
+        appointments: [],
+      }).success,
     ).toBe(true)
   })
 
   it.each(['CANCELLED', 'COMPLETED', 'NO_SHOW'])('carries a %s row', (status) => {
-    const body = { when: 'all', appointments: [{ ...APPOINTMENT, status }] }
+    const body = {
+      when: 'all',
+      timeZone: 'America/New_York',
+      appointments: [{ ...APPOINTMENT, status }],
+    }
     expect(myAppointmentsResponse.safeParse(body).success).toBe(true)
+  })
+
+  // Rendering `startsAt` without it means hardcoding the clinic's zone, the
+  // same bug clinic-time.ts exists to prevent on the availability response.
+  it('refuses a body with no time zone', () => {
+    expect(
+      myAppointmentsResponse.safeParse({ when: 'upcoming', appointments: [APPOINTMENT] }).success,
+    ).toBe(false)
   })
 })
 

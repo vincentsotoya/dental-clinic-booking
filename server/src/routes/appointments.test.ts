@@ -327,6 +327,14 @@ describe('GET /api/appointments/me', () => {
     expect(res.body.appointments[0].provider.lastName).toBe('Okonkwo')
   })
 
+  // Echoed, not hardcoded, for the same reason availability echoes it: a
+  // client rendering `startsAt` needs the clinic's zone, not the browser's.
+  it('echoes the clinic time zone', async () => {
+    const res = await list(PATIENT_USER).res
+
+    expect(res.body.timeZone).toBe('America/New_York')
+  })
+
   // The property ADR-0007 is about: a stranger's row is never in the answer,
   // rather than filtered out of it afterwards.
   it('puts the caller’s chart id in the WHERE clause', async () => {

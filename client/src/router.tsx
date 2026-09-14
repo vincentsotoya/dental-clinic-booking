@@ -14,6 +14,7 @@ import { createBrowserRouter } from 'react-router'
 import { RequireAuth } from './auth/RequireAuth'
 import PublicLayout from './routes/PublicLayout'
 import Book from './booking/Book'
+import BookingConfirmed from './routes/BookingConfirmed'
 import Home from './routes/Home'
 import Services from './routes/Services'
 import Dentists from './routes/Dentists'
@@ -30,6 +31,17 @@ export const router = createBrowserRouter([
       { path: '/services', element: <Services /> },
       { path: '/dentists', element: <Dentists /> },
       { path: '/book', element: <Book /> },
+      // Nested rather than a sibling list: a patient's own data still gets
+      // the nav and footer, which the standalone version of this route did
+      // not — the critique's complaint, closed by nesting rather than by
+      // each guarded screen carrying its own chrome.
+      {
+        element: <RequireAuth />,
+        children: [
+          { path: '/appointments', element: <MyAppointments /> },
+          { path: '/appointments/:id/confirmed', element: <BookingConfirmed /> },
+        ],
+      },
       // Last, and public: an unknown URL is not a reason to ask who someone is.
       { path: '*', element: <NotFound /> },
     ],
@@ -38,8 +50,4 @@ export const router = createBrowserRouter([
   // not want a nav offering four ways to leave it. Both carry `?next=`.
   { path: '/sign-in', element: <SignIn /> },
   { path: '/sign-up', element: <SignUp /> },
-  {
-    element: <RequireAuth />,
-    children: [{ path: '/appointments', element: <MyAppointments /> }],
-  },
 ])

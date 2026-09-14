@@ -9,14 +9,16 @@ questions. **(S)** marks a task driven by a skill session.
 
 ## Current Phase
 
-Phase 5 — Patient frontend, the first shippable portfolio state. Phase 4 is complete: book,
-list, cancel and reschedule, each proven against real rows, with every change appended to an
-event log inside the transaction that made it.
+Phase 6 — the patient account. Phase 5 is complete: the patient frontend shipped and deployed,
+unlisted until Phase 11 gives it an API. This phase is the Phase 4 endpoints' screens — my
+appointments, cancel, reschedule, profile and insurance — plus the dedicated booking confirmation.
 
 ## Completed
 
-Phases 0–4 are closed; `docs/roadmap.md` lists what each one covered and
-`docs/decisions-log.md` keeps their reasoning.
+Phases 0–5 are closed; `docs/roadmap.md` lists what each one covered and
+`docs/decisions-log.md` keeps their reasoning. Phase 5's detailed log is still below rather than
+compressed to one line yet — that cleanup, and moving its `Recent Decisions` into
+`docs/decisions-log.md`, is owed as a follow-up, not done in the same session that closed it.
 
 - [x] **Phase 0** — repo, skills, domain model settled → `CONTEXT.md`, ADR-0001–0003
 - [x] **Phase 1** — Postgres 17, `dental_clinic`, Prisma 7.10.0, `schema.prisma` (8 models,
@@ -30,7 +32,7 @@ Phases 0–4 are closed; `docs/roadmap.md` lists what each one covered and
       applies, every change appended to `AppointmentEvent` inside its own transaction. Five
       `db:*` proofs, 139 checks, every claim falsified by deletion. 282 tests
 
-Phase 5, in progress:
+Phase 5, closed:
 
 - [x] **(S)** `/design-taste-frontend` — **Cobalt & Cream**; tokens in `client/src/index.css`,
       reasoning in `docs/design-system.md`. Outfit + Geist installed and self-hosted
@@ -179,18 +181,82 @@ Phase 5, in progress:
       copy, the reservation that never exists. The confirm step and the sign-up intro say *book*,
       which is what they do; step 4 and `AuthShell` keep *hold*, in the negative
 
+- [x] **(C)** Three of the critique's five Minor Observations, closed. `ChooseDate`'s calendar
+      cannot page earlier than the current month — `startMonth` on the `Calendar`, so a patient can
+      no longer fire an availability request against 2019. `ChooseService`'s loading skeleton is
+      shaped like what actually lands: two doors, then a hygienist group of three cards and a
+      dentist group of seven, not five generic blocks. A reassurance line sits under the doors —
+      "Nervous, or need us to know something first? There's a spot for that before you book." — so
+      the notes field's empathy reaches the patient at the door most likely to be pressed anxiously,
+      not only on the last screen where the field itself still lives
+- [x] 🎯 Falsified three ways, one red test each: drop `startMonth` and the previous-month button's
+      `aria-disabled` turns red; drop the dentist group's skeleton and the shape count turns 6 where
+      it should be 14; drop the reassurance line and the door test that reads it turns red
+- [ ] The doc-drift observation needed no fix — `PROGRESS.md`'s `outline-none` bullet already says
+      the accurate thing, corrected in an edit since the critique ran
+- [ ] `ChooseDate` never passing `selected` to `Calendar` — considered and declined. `choices.date`
+      is always `null` whenever `ChooseDate` is mounted: the step only becomes `'date'` when it is
+      unanswered, and `revise('date')` clears it before the component remounts. `selected` would
+      always evaluate to `undefined`; there is no reachable state it would render for
+
+Phase 6, in progress:
+
+- [x] **(C)** `GET /api/appointments/me` echoes `timeZone` — the same reasoning `/api/availability`
+      already carries it. Both new screens below render `startsAt` and neither had a source for the
+      clinic's zone; `client/src/lib/clinic-time.ts` gained `civilDateOf` for the one
+      instant-to-civil-date conversion a slot's own `date` field gives for free elsewhere
+- [x] 🎯 `npm run db:booking` against real Postgres: the live response's `timeZone` reads
+      `America/New_York`, the server's own configured value, not asserted from a fixture
+- [x] 🎯 3 tests on `civilDateOf`: reads the clinic day, not the UTC day; crosses midnight when the
+      clinic zone does though UTC has not; disagrees with a naive UTC read — the bug this exists
+      to prevent
+- [x] **(C)** The dedicated booking confirmation screen, `/appointments/:id/confirmed` —
+      `BookingConfirmed.tsx`, replacing the `?booked=` banner bolted onto the list. Same ownership
+      rule as before: the id is a URL anyone can type, and the confirmation renders only for one of
+      the patient's own `CONFIRMED` rows
+- [x] **(C)** `client/src/lib/ics.ts` — the one artifact a booking can leave without email
+      (Phase 10). UTC instants, no `VTIMEZONE`, and a `.invalid` UID domain (RFC 2606) rather than
+      a fabricated real one — `PRODUCT.md` forbids inventing an address, and a UID does not need one
+- [x] 🎯 9 tests: the instant is carried, not converted; a comma is escaped so a calendar app reads
+      one line, not two fields; CRLF line endings, RFC 5545's requirement; the download names the
+      file after the appointment and revokes its object URL
+- [x] **(C)** `SummaryList`/`SummaryRow` extracted from `Confirm.tsx`'s local `Row`, shared with
+      the confirmation screen — the booking flow's last step and its confirmation now read as one
+      moment instead of two different UIs describing the same booking
+- [x] **(C)** The real appointments screen, replacing the "working stand-in": Upcoming/Past tabs
+      over `useMyAppointments(when)`, and cancel wired to a confirm dialog on `variant="destructive"`
+      — the first real use of the `danger` token outside the design system's own documentation
+- [x] 🎯 Falsified twice: drop the ownership-and-status check on the confirmation screen and a
+      cancelled row's confirmation stops disappearing; drop the status gate on Cancel and it
+      appears on a cancelled row too
+- [x] **(C)** Cancel offered only on the upcoming list, not the past one — found live, not planned.
+      A `CONFIRMED` row that stayed `CONFIRMED` past its own start time (the clinic never marked it
+      `COMPLETED`) offered Cancel on the Past tab, and the server correctly refused it as
+      `NOT_CANCELLABLE`. The upcoming/past boundary is the same "has not started yet" line the
+      server enforces, so gating on it needs no client-side clock
+- [x] 🎯 Falsified: drop the `cancellable` gate and the past-list test putting a `CONFIRMED` row on
+      the Past tab turns red
+- [x] **(C)** `RequireAuth` nested under `PublicLayout` rather than a sibling list — `/appointments`
+      gets the nav and footer the critique flagged as missing, without either guarded screen
+      carrying its own chrome
+- [x] 🎯 Exercised for real against Postgres and a real signed-in session: booked a Routine
+      Cleaning, landed on the confirmation screen with nav and footer, downloaded the `.ics`, saw
+      it on the Upcoming list, cancelled it, watched it move to Past with no Cancel button —
+      `CANCELLED`, not deleted, which is the record the system is supposed to keep
+
 ## Current Task
 
-- [ ] None. Phase 5's checklist is closed — P0, four P1s and the P2 are all shut. The next session
-      chooses: open Phase 6, or first take the critique's five Minor Observations, which nothing
-      has claimed (calendar paging to 2019, `ChooseDate` never passing `selected`, the step 1
-      skeleton's layout shift, and the notes placeholder stranded on the last screen)
+- [ ] None. The first slice of Phase 6 — confirmation, the real appointments list, cancel — is
+      closed and exercised for real. Reschedule and the profile/insurance screen are next
 
 ## Next
 
-- [ ] **Phase 6** — the patient account: my appointments, cancel, reschedule, profile and
-      insurance details. The Phase 4 endpoints are already built and proven; this is their screens,
-      plus the dedicated booking confirmation with an `.ics` download
+- [ ] **Reschedule** — the harder remaining piece. Likely reuses the booking flow's date/time
+      steps, scoped to one appointment's existing service and provider rather than a fresh choice
+- [ ] **Profile & insurance** — the one piece needing new server work: a `PATCH` endpoint for
+      phone, date of birth and insurance, ownership-scoped like ADR-0007, plus its shared contract
+      and screen. `GET /api/me` deliberately excludes these fields today and says so in its own
+      comment
 
 ## Active Blockers
 
@@ -214,6 +280,20 @@ Phase 5, in progress:
 
 ## Recent Decisions
 
+- **Cancel is gated on the list, not on a client-side clock.** The upcoming/past split is already
+  computed server-side against `now`, the exact boundary `refusalToChange` refuses against — so
+  "offer Cancel only on the upcoming list" needs no date comparison in the client, and cannot drift
+  from the rule that actually decides. Found live: a seeded row stayed `CONFIRMED` past its own
+  start time and still offered a Cancel button that the server correctly refused
+- **The confirmation screen and the appointments list both needed the clinic's time zone, and
+  neither had it.** `/api/appointments/me` carried no `timeZone`, unlike availability — a gap that
+  was latent before (the old stand-in hardcoded `America/New_York`) and would have been copied
+  into a second screen. Echoing it is the same one-line fix `/api/availability` already made
+- **The reassurance line joined the notes field's copy rather than the field itself moving.**
+  Moving the textarea to step 1 would mean carrying free-typed text across steps 2–4, and the
+  booking's state lives only in the URL — unlike the rest of the flow, notes typed early would not
+  survive the sign-in round trip the way the chosen slot does. A line of copy at the door carries
+  the empathy forward at no cost to that guarantee; the field stays where it is submitted
 - **One word, one meaning: *hold* is the thing that never happens.** The promise "nothing is held
   until you confirm" is only worth making if the next screen doesn't then offer to hold something.
   Both surviving uses are negative; every place the system actually writes a row says *book*. The

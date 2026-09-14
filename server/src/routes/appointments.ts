@@ -75,6 +75,7 @@ export function createAppointmentsRouter(deps: AppointmentsDeps): Router {
 
     const body = myAppointmentsResponse.parse({
       when,
+      timeZone,
       appointments: rows.map(toPatientAppointment),
     })
 

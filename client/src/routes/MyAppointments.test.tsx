@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { MeResponse, MyAppointmentsResponse, PatientAppointment } from '@dental/shared'
 import { queryKeys } from '../api/keys'
 import MyAppointments from './MyAppointments'
 
 afterEach(cleanup)
+afterEach(() => vi.unstubAllGlobals())
 
 const ME: MeResponse = {
   user: {
@@ -50,22 +51,38 @@ const CLEANING: PatientAppointment = {
   id: '5f2b8c00-0000-4000-8000-000000000002',
   startsAt: '2026-10-20T18:00:00.000Z',
   endsAt: '2026-10-20T19:00:00.000Z',
-  service: { ...EXAM.service, id: '3d604f00-0000-4000-8000-000000000006', slug: 'adult-cleaning', name: 'Adult Cleaning' },
+  service: {
+    ...EXAM.service,
+    id: '3d604f00-0000-4000-8000-000000000006',
+    slug: 'adult-cleaning',
+    name: 'Adult Cleaning',
+  },
 }
 
-/** Both queries seeded, so the screen renders its answer without the network. */
-function renderAt(url: string, appointments: PatientAppointment[] = [EXAM, CLEANING]) {
+function response(
+  when: MyAppointmentsResponse['when'],
+  appointments: PatientAppointment[],
+): MyAppointmentsResponse {
+  return { when, timeZone: 'America/New_York', appointments }
+}
+
+/** Both windows seeded, so switching tabs never touches the network. */
+function renderList({
+  upcoming = [EXAM, CLEANING],
+  past = [],
+}: {
+  upcoming?: PatientAppointment[]
+  past?: PatientAppointment[]
+} = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, queryFn: () => new Promise(() => {}) } },
   })
   queryClient.setQueryData(queryKeys.me(), ME)
-  queryClient.setQueryData<MyAppointmentsResponse>(queryKeys.myAppointments(), {
-    when: 'upcoming',
-    appointments,
-  })
+  queryClient.setQueryData(queryKeys.myAppointments('upcoming'), response('upcoming', upcoming))
+  queryClient.setQueryData(queryKeys.myAppointments('past'), response('past', past))
 
   const router = createMemoryRouter([{ path: '/appointments', element: <MyAppointments /> }], {
-    initialEntries: [url],
+    initialEntries: ['/appointments'],
   })
 
   render(
@@ -73,58 +90,128 @@ function renderAt(url: string, appointments: PatientAppointment[] = [EXAM, CLEAN
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
+
+  return queryClient
 }
 
-describe('MyAppointments, arriving from the booking flow', () => {
-  it('confirms the booking by name and says no email is coming', async () => {
-    renderAt(`/appointments?booked=${EXAM.id}`)
+function stubCancel(reply: () => Response) {
+  vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+    const url = String(input)
+    if (init?.method === 'PATCH' && url.includes('/cancel')) return reply()
+    throw new Error(`unexpected request: ${url}`)
+  })
+}
 
-    const confirmation = await screen.findByRole('status')
-    expect(confirmation.textContent).toContain('You’re booked')
-    expect(confirmation.textContent).toContain('Routine Exam with Alice Okonkwo, DDS')
-    expect(confirmation.textContent).toContain('nothing is coming to your inbox')
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+describe('the list', () => {
+  it('shows each appointment in the clinic zone, not the browser one', async () => {
+    renderList()
+
+    // 13:15Z is 9:15 in New York — the machine running this test is not.
+    expect(await screen.findByText('Routine Exam')).toBeDefined()
+    expect(screen.getByText('9:15 AM', { exact: false })).toBeDefined()
+    expect(screen.getAllByText('Dr Alice Okonkwo').length).toBeGreaterThan(0)
   })
 
-  it('marks the new row, and only that one, in words', async () => {
-    renderAt(`/appointments?booked=${EXAM.id}`)
+  it('says nothing is booked, distinct from nothing being past', async () => {
+    renderList({ upcoming: [], past: [] })
 
-    await screen.findByRole('status')
-    const [marked, ...others] = screen.getAllByText('Just booked')
-    expect(others).toHaveLength(0)
-    expect(marked?.closest('li')?.textContent).toContain('Routine Exam')
+    expect(await screen.findByText('Nothing booked yet.')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Past' }))
+    expect(await screen.findByText('Nothing here yet.')).toBeDefined()
   })
 
-  // The confirm button unmounted on the way here; left alone, focus is on
-  // `<body>` and the next Tab lands on Sign out.
-  it('moves focus to the confirmation', async () => {
-    renderAt(`/appointments?booked=${EXAM.id}`)
-
-    const confirmation = await screen.findByRole('status')
-    expect(document.activeElement).toBe(confirmation)
-  })
-
-  it('confirms nothing without the parameter', async () => {
-    renderAt('/appointments')
+  it('switches lists without asking the network for what it already has', async () => {
+    renderList({ upcoming: [EXAM], past: [CLEANING] })
 
     await screen.findByText('Routine Exam')
-    expect(screen.queryByRole('status')).toBeNull()
-    expect(screen.queryByText('Just booked')).toBeNull()
+    fireEvent.click(screen.getByRole('tab', { name: 'Past' }))
+
+    expect(await screen.findByText('Adult Cleaning')).toBeDefined()
+    expect(screen.queryByText('Routine Exam')).toBeNull()
   })
 
-  // The parameter is a URL anyone can type; the row is the evidence.
-  it('confirms nothing for an id that is not one of their rows', async () => {
-    renderAt('/appointments?booked=5f2b8c00-0000-4000-8000-00000000dead')
+  it('offers no cancel button for a row that is not confirmed', async () => {
+    renderList({ upcoming: [{ ...EXAM, status: 'CANCELLED' }] })
 
     await screen.findByText('Routine Exam')
-    expect(screen.queryByRole('status')).toBeNull()
-  })
-
-  // A bookmarked confirmation outlives the booking it confirmed.
-  it('confirms nothing once that booking is cancelled', async () => {
-    renderAt(`/appointments?booked=${EXAM.id}`, [{ ...EXAM, status: 'CANCELLED' }, CLEANING])
-
-    await screen.findByText('Routine Exam')
-    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
     expect(screen.getByText('cancelled')).toBeDefined()
+  })
+
+  // Seen live: a row that stayed CONFIRMED past its own start time (the clinic
+  // never marked it COMPLETED) still offers Cancel on the upcoming list, and
+  // the server correctly refuses it as NOT_CANCELLABLE. The past list is
+  // bounded by the same "already started" line the server enforces, so a
+  // button there would always fail.
+  it('offers no cancel button on the past list, even for a row still marked confirmed', async () => {
+    renderList({ upcoming: [], past: [EXAM] })
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Past' }))
+
+    await screen.findByText('Routine Exam')
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+  })
+})
+
+describe('cancelling', () => {
+  it('names the appointment being cancelled before asking to confirm', async () => {
+    renderList({ upcoming: [EXAM] })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+
+    expect(await screen.findByRole('dialog')).toBeDefined()
+    expect(screen.getByText(/Routine Exam with Dr Alice Okonkwo/)).toBeDefined()
+  })
+
+  it('changes nothing until the second, explicit press', async () => {
+    stubCancel(() => {
+      throw new Error('should not be called')
+    })
+    renderList({ upcoming: [EXAM] })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Keep it' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('closes the dialog once the cancellation succeeds', async () => {
+    stubCancel(() => jsonResponse({ appointment: { ...EXAM, status: 'CANCELLED' } }))
+    renderList({ upcoming: [EXAM] })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel appointment' }))
+
+    await screen.findByRole('button', { name: 'Cancel' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  // NOT_CANCELLABLE's message is written for a patient — the race the server
+  // guards against, seen here as the client's job to surface honestly.
+  it('shows the clinic’s own reason when it refuses, and leaves the dialog open', async () => {
+    stubCancel(() =>
+      jsonResponse(
+        { error: { code: 'NOT_CANCELLABLE', message: 'That appointment has already started.' } },
+        409,
+      ),
+    )
+    renderList({ upcoming: [EXAM] })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel appointment' }))
+
+    expect(await screen.findByRole('alert')).toHaveProperty(
+      'textContent',
+      'That appointment has already started.',
+    )
+    expect(screen.getByRole('dialog')).toBeDefined()
   })
 })

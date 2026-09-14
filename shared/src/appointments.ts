@@ -150,6 +150,8 @@ export type MyAppointmentsQuery = z.infer<typeof myAppointmentsQuery>
  */
 export const myAppointmentsResponse = z.object({
   when: appointmentWindow,
+  /** Echoed so a client can render `startsAt` without hardcoding the clinic's zone. */
+  timeZone: z.string(),
   appointments: z.array(patientAppointment),
 })
 

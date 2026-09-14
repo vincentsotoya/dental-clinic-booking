@@ -38,6 +38,24 @@ export function localDateToCivil(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
+/**
+ * The clinic's civil date for an instant, read off its own zone rather than
+ * the browser's — the bug this file exists to prevent, for the one response
+ * (`/api/appointments/me`) that sends instants with no civil date alongside
+ * them the way an availability slot does.
+ */
+export function civilDateOf(instant: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(instant))
+
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
 /** "8:00 AM" — the time as the clinic keeps it, whatever zone the patient is in. */
 export function formatClinicTime(instant: string, timeZone: string): string {
   return new Intl.DateTimeFormat('en-US', {

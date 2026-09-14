@@ -220,6 +220,13 @@ async function main() {
   const theirIds = (theirs.body.appointments ?? []).map((a) => a.id)
 
   check('a patient reads their own list', mine.status === 200, `got ${mine.status}`)
+  // Echoed so a client can render `startsAt` without hardcoding the clinic's
+  // zone — the same reasoning availability's own `timeZone` field carries.
+  check(
+    'the response names the clinic’s time zone',
+    mine.body.timeZone === env.CLINIC_TIMEZONE,
+    mine.body.timeZone,
+  )
   check('the booking just made is in it', id !== undefined && mineIds.includes(id))
   check('the other patient’s list does not contain it', id !== undefined && !theirIds.includes(id))
   check(
