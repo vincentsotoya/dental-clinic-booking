@@ -45,6 +45,10 @@ export function ChooseDate({ availability, provider, month, onMonthChange, onCho
             mode="single"
             month={month}
             onMonthChange={onMonthChange}
+            // Without this a patient can page back to 2019, firing an
+            // availability request per month that lands on copy blaming their
+            // choice rather than the empty month they went looking in.
+            startMonth={new Date()}
             // A local-midnight Date per civil date, never an instant. Comparing
             // through `new Date(slot.startsAt)` here would file a late slot
             // under the wrong day for a patient in another zone.

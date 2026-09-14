@@ -81,6 +81,20 @@ describe('the two doors', () => {
     expect(screen.queryByRole('button', { name: /In pain today\?/ })).toBeNull()
     expect(screen.getByRole('button', { name: /First visit\?/ })).toBeDefined()
   })
+
+  // The notes field's empathy arrives on the last screen; a patient pressing
+  // the pain door needs it here, not four steps later.
+  it('tells a nervous patient there is a place for that before they book', () => {
+    show()
+
+    expect(screen.getByText(/Nervous, or need us to know something first\?/)).toBeDefined()
+  })
+
+  it('says nothing about notes when there is no door to meet the moment at', () => {
+    show(CATALOGUE.filter((s) => s.slug !== 'emergency-visit' && s.slug !== 'new-patient-exam'))
+
+    expect(screen.queryByText(/Nervous, or need us to know something first\?/)).toBeNull()
+  })
 })
 
 describe('the order of the list', () => {
@@ -109,6 +123,17 @@ describe('the order of the list', () => {
     const order = cardOrder()
     expect(order.some((text) => text.includes('Teeth Whitening'))).toBe(true)
     expect(order.at(-1)).toContain('Teeth Whitening')
+  })
+})
+
+describe('the loading skeleton', () => {
+  // 2 doors + (1 heading + 3 cards) + (1 heading + 7 cards) — the catalogue's
+  // real 3 hygienist / 7 dentist split (ADR-0002). A skeleton with the wrong
+  // shape is exactly the layout shift this guards against.
+  it('is shaped like the catalogue that is about to land', () => {
+    render(<ChooseService services={[]} isPending={true} onChoose={vi.fn()} />)
+
+    expect(document.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(14)
   })
 })
 

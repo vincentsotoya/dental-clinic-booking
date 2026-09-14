@@ -53,15 +53,17 @@ export function ChooseService({ services, isPending, onChoose }: Props) {
   })
 
   if (isPending) {
+    // Shaped like what actually lands — the two doors, then a hygienist group
+    // of three cards and a dentist group of seven (the catalogue's real split,
+    // ADR-0002) — so first paint does not shift when the real content arrives.
     return (
-      <div className="mt-6 space-y-3">
+      <div className="mt-6">
         <div className="grid grid-cols-2 gap-3">
           <Skeleton className="h-24 rounded-card" />
           <Skeleton className="h-24 rounded-card" />
         </div>
-        {Array.from({ length: 3 }, (_, i) => (
-          <Skeleton key={i} className="h-28 w-full rounded-card" />
-        ))}
+        <GroupSkeleton count={3} />
+        <GroupSkeleton count={7} />
       </div>
     )
   }
@@ -93,6 +95,16 @@ export function ChooseService({ services, isPending, onChoose }: Props) {
         </ul>
       )}
 
+      {doors.length > 0 && (
+        // The empathy the notes field carries at step 5 was arriving after the
+        // moment it was needed. This is the door most likely to be pressed by
+        // someone anxious, so the reassurance meets them here instead.
+        <p className="mt-3 text-sm text-muted-foreground">
+          Nervous, or need us to know something first? There&rsquo;s a spot for that before you
+          book.
+        </p>
+      )}
+
       <Group title="With a hygienist" services={hygiene} onChoose={onChoose} />
       <Group title="With a dentist" services={dental} onChoose={onChoose} />
     </section>
@@ -106,6 +118,19 @@ function inOrder(services: CatalogueService[]): CatalogueService[] {
   }
 
   return [...services].sort((a, b) => rank(a) - rank(b))
+}
+
+function GroupSkeleton({ count }: { count: number }) {
+  return (
+    <div className="mt-8">
+      <Skeleton className="h-4 w-32" />
+      <div className="mt-3 space-y-3">
+        {Array.from({ length: count }, (_, i) => (
+          <Skeleton key={i} className="h-28 w-full rounded-card" />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function Group({
