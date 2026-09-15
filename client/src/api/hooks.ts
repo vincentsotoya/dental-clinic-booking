@@ -12,11 +12,13 @@ import type {
   AvailabilityResponse,
   HealthResponse,
   BookAppointmentRequest,
+  GetProfileResponse,
   MeResponse,
   MyAppointmentsResponse,
   ProvidersResponse,
   RescheduleAppointmentRequest,
   ServicesResponse,
+  UpdateProfileRequest,
 } from '@dental/shared'
 import {
   bookAppointment,
@@ -25,9 +27,11 @@ import {
   getHealth,
   getMe,
   getMyAppointments,
+  getProfile,
   getProviders,
   getServices,
   rescheduleAppointment,
+  updateProfile,
   type AvailabilityParams,
 } from './endpoints'
 import { queryKeys } from './keys'
@@ -104,6 +108,30 @@ export const useMyAppointments = (
     queryFn: ({ signal }) => getMyAppointments(when, { signal }),
     ...options,
   })
+
+/** Phone, date of birth and insurance. Not called on every load, unlike `useMe`. */
+export const useProfile = (options: QueryTuning<GetProfileResponse> = {}) =>
+  useQuery({
+    queryKey: queryKeys.profile(),
+    queryFn: ({ signal }) => getProfile({ signal }),
+    ...options,
+  })
+
+/**
+ * Writes the whole form and hands back what Postgres now holds.
+ *
+ * `setQueryData`, not an invalidation: the response already is the new
+ * profile, in the same shape the query caches — refetching to learn what the
+ * mutation just told us would be a second request for the same answer.
+ */
+export const useUpdateProfile = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (body: UpdateProfileRequest) => updateProfile(body),
+    onSuccess: (data) => queryClient.setQueryData(queryKeys.profile(), data),
+  })
+}
 
 /**
  * Everything a write invalidates.

@@ -244,19 +244,34 @@ Phase 6, in progress:
       it on the Upcoming list, cancelled it, watched it move to Past with no Cancel button —
       `CANCELLED`, not deleted, which is the record the system is supposed to keep
 
+- [x] **(C)** Profile & insurance — `GET`/`PATCH /api/me/profile`, a dedicated route rather than
+      widening `/api/me`: phone, date of birth and insurance stay off the route every cold load
+      calls. Scoped by `getChartId`, not `requireOwnership` — there is no id in the path, "mine" is
+      the only row this route can mean. `shared/src/profile.ts`, `client/src/routes/Profile.tsx`
+      at `/profile`, reachable from a new link on `MyAppointments`
+- [x] A `PATCH` states every field, never a merge patch — one form, one save button, so there is
+      no field the caller means to leave alone. Clearing a field is a real edit, spelled `null` the
+      same way everything else is; the client's own blank-string-to-`null` mapping sits at the
+      submit boundary, not in the shared schema, so a text input keeps its natural empty value
+- [x] 🎯 15 checks against real Postgres (`npm run db:profile`): the seed's own values come back
+      unchanged, a PATCH lands in the row and not only in the response, a `@db.Date` column comes
+      back as the civil date it holds rather than a timestamp that could shift a day, and a
+      rejected write (a future date of birth, a too-long field) touches nothing. Marsh's seeded row
+      is restored before the script exits
+- [x] 🎯 Exercised live in the browser against the dev server: filled and saved all four fields,
+      watched "Saved." appear and the button disable itself, reloaded the page cold and the values
+      came back from Postgres, then confirmed a future date of birth is refused client-side with no
+      network call at all
+
 ## Current Task
 
-- [ ] None. The first slice of Phase 6 — confirmation, the real appointments list, cancel — is
-      closed and exercised for real. Reschedule and the profile/insurance screen are next
+- [ ] None. Profile & insurance is closed and exercised for real. Reschedule is next — the last
+      piece of Phase 6
 
 ## Next
 
 - [ ] **Reschedule** — the harder remaining piece. Likely reuses the booking flow's date/time
       steps, scoped to one appointment's existing service and provider rather than a fresh choice
-- [ ] **Profile & insurance** — the one piece needing new server work: a `PATCH` endpoint for
-      phone, date of birth and insurance, ownership-scoped like ADR-0007, plus its shared contract
-      and screen. `GET /api/me` deliberately excludes these fields today and says so in its own
-      comment
 
 ## Active Blockers
 
@@ -280,6 +295,18 @@ Phase 6, in progress:
 
 ## Recent Decisions
 
+- **Profile is its own route, not a wider `/api/me`.** `/api/me` is called on every cold load;
+  phone, date of birth and insurance are the schema's most sensitive fields, so they get a route a
+  patient visits once in a while instead of riding along on the one every page pays for
+- **"Mine" needed no `requireOwnership`.** That guard exists for routes an id in the path
+  addresses — cancel, reschedule. Profile has no id: the session's own chart is the only row it can
+  ever mean, so `getChartId` is the whole guard, ADR-0007's principle without its machinery
+- **A save states the whole form, not a merge patch.** One screen, one button — there is never a
+  field the caller means to leave untouched, so clearing a field is spelled `null` the same way
+  every other value is, not a key a partial update would need to distinguish from "unchanged"
+- **The blank-to-`null` mapping lives in the client, not the shared schema.** A text input's honest
+  empty value is `''`; putting a preprocessor in the wire contract to translate it would make the
+  contract type `string | null` mean two different things depending on which side wrote it
 - **Cancel is gated on the list, not on a client-side clock.** The upcoming/past split is already
   computed server-side against `now`, the exact boundary `refusalToChange` refuses against — so
   "offer Cancel only on the upcoming list" needs no date comparison in the client, and cannot drift

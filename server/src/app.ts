@@ -14,11 +14,13 @@ import { type CatalogueDeps, createCatalogueRouter } from './routes/catalogue'
 import { errorHandler } from './routes/errors'
 import { createHealthRouter, type HealthDeps } from './routes/health'
 import { createMeRouter } from './routes/me'
+import { createProfileRouter, type ProfileDeps } from './routes/profile'
 
 export type AppDeps = HealthDeps &
   AvailabilityDeps &
   CatalogueDeps &
   AuthDeps &
+  Omit<ProfileDeps, 'requireAuth'> &
   Omit<AppointmentsDeps, 'requireAuth' | 'requireOwnership'>
 
 export function createApp(deps: AppDeps): express.Express {
@@ -39,6 +41,7 @@ export function createApp(deps: AppDeps): express.Express {
   app.use('/api', createAvailabilityRouter(deps))
   app.use('/api', createCatalogueRouter(deps))
   app.use('/api', createMeRouter({ ...deps, attachSession }))
+  app.use('/api', createProfileRouter({ ...deps, requireAuth }))
   app.use('/api', createAppointmentsRouter({ ...deps, requireAuth, requireOwnership }))
 
   // Last, and after the routes: Express picks error middleware by its four

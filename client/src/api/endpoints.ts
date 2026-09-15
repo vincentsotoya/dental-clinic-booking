@@ -11,11 +11,13 @@ import {
   healthResponse,
   bookAppointmentResponse,
   cancelAppointmentResponse,
+  getProfileResponse,
   meResponse,
   myAppointmentsResponse,
   providersResponse,
   servicesResponse,
   rescheduleAppointmentResponse,
+  updateProfileResponse,
   type AvailabilityErrorCode,
   type AvailabilityResponse,
   type AppointmentWindow,
@@ -24,6 +26,8 @@ import {
   type BookAppointmentResponse,
   type CancelAppointmentErrorCode,
   type CancelAppointmentResponse,
+  type GetProfileErrorCode,
+  type GetProfileResponse,
   type HealthResponse,
   type MeResponse,
   type MyAppointmentsErrorCode,
@@ -33,6 +37,9 @@ import {
   type RescheduleAppointmentErrorCode,
   type RescheduleAppointmentRequest,
   type RescheduleAppointmentResponse,
+  type UpdateProfileErrorCode,
+  type UpdateProfileRequest,
+  type UpdateProfileResponse,
 } from '@dental/shared'
 import { request } from './client'
 
@@ -131,6 +138,27 @@ export const cancelAppointment = (
     path: `/appointments/${appointmentId}/cancel`,
     schema: cancelAppointmentResponse,
     method: 'PATCH',
+    ...options,
+  })
+
+/** Phone, date of birth and insurance — the fields `/api/me` deliberately leaves out. */
+export const getProfile = (options: Signal = {}): Promise<GetProfileResponse> =>
+  request<GetProfileResponse, GetProfileErrorCode>({
+    path: '/me/profile',
+    schema: getProfileResponse,
+    ...options,
+  })
+
+/** Every field, stated: the screen has one save button, so there is no partial update. */
+export const updateProfile = (
+  body: UpdateProfileRequest,
+  options: Signal = {},
+): Promise<UpdateProfileResponse> =>
+  request<UpdateProfileResponse, UpdateProfileErrorCode>({
+    path: '/me/profile',
+    schema: updateProfileResponse,
+    method: 'PATCH',
+    body,
     ...options,
   })
 

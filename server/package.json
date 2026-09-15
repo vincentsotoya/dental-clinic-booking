@@ -18,7 +18,8 @@
     "db:cancel": "tsx scripts/check-cancel.ts",
     "db:reschedule": "tsx scripts/check-reschedule.ts",
     "db:events": "tsx scripts/check-events.ts",
-    "db:catalogue": "tsx scripts/check-catalogue.ts"
+    "db:catalogue": "tsx scripts/check-catalogue.ts",
+    "db:profile": "tsx scripts/check-profile.ts"
   },
   "dependencies": {
     "@dental/shared": "*",

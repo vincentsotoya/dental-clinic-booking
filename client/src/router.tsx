@@ -20,6 +20,7 @@ import Services from './routes/Services'
 import Dentists from './routes/Dentists'
 import MyAppointments from './routes/MyAppointments'
 import NotFound from './routes/NotFound'
+import Profile from './routes/Profile'
 import SignIn from './routes/SignIn'
 import SignUp from './routes/SignUp'
 
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
         children: [
           { path: '/appointments', element: <MyAppointments /> },
           { path: '/appointments/:id/confirmed', element: <BookingConfirmed /> },
+          { path: '/profile', element: <Profile /> },
         ],
       },
       // Last, and public: an unknown URL is not a reason to ask who someone is.

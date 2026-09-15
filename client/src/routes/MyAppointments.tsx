@@ -46,9 +46,14 @@ export default function MyAppointments() {
             </p>
           )}
         </div>
-        <Button variant="ghost" size="sm" onClick={() => void signOut()}>
-          Sign out
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/profile">Profile</Link>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => void signOut()}>
+            Sign out
+          </Button>
+        </div>
       </header>
 
       <div

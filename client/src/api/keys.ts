@@ -12,6 +12,7 @@ import type { AvailabilityParams } from './endpoints'
 export const queryKeys = {
   health: () => ['health'] as const,
   me: () => ['me'] as const,
+  profile: () => ['profile'] as const,
 
   // The catalogue changes when an admin edits it (Phase 7), not when anyone
   // books. No write in this app invalidates either of these.
