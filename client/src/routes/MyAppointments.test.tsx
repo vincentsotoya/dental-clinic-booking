@@ -146,6 +146,17 @@ describe('the list', () => {
     expect(screen.getByText('cancelled')).toBeDefined()
   })
 
+  // Same gate as Cancel, same reasoning: both refuse on the appointment's own
+  // state, and the upcoming/past split is already that boundary.
+  it('offers Reschedule wherever it offers Cancel, and nowhere else', async () => {
+    renderList({ upcoming: [EXAM, { ...CLEANING, status: 'CANCELLED' }] })
+
+    await screen.findByText('Routine Exam')
+    const link = screen.getByRole('link', { name: 'Reschedule' })
+    expect(link.getAttribute('href')).toBe(`/appointments/${EXAM.id}/reschedule`)
+    expect(screen.queryAllByRole('link', { name: 'Reschedule' })).toHaveLength(1)
+  })
+
   // Seen live: a row that stayed CONFIRMED past its own start time (the clinic
   // never marked it COMPLETED) still offers Cancel on the upcoming list, and
   // the server correctly refuses it as NOT_CANCELLABLE. The past list is
@@ -158,6 +169,7 @@ describe('the list', () => {
 
     await screen.findByText('Routine Exam')
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Reschedule' })).toBeNull()
   })
 })
 

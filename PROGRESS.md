@@ -9,9 +9,9 @@ questions. **(S)** marks a task driven by a skill session.
 
 ## Current Phase
 
-Phase 6 — the patient account. Phase 5 is complete: the patient frontend shipped and deployed,
-unlisted until Phase 11 gives it an API. This phase is the Phase 4 endpoints' screens — my
-appointments, cancel, reschedule, profile and insurance — plus the dedicated booking confirmation.
+Phase 7 — admin. Phase 6 is complete: the patient side of the app — my appointments, cancel,
+reschedule, profile and insurance, plus the dedicated booking confirmation — all have screens now,
+each exercised against real Postgres and, where it's a UI, a real signed-in browser session.
 
 ## Completed
 
@@ -199,7 +199,7 @@ Phase 5, closed:
       unanswered, and `revise('date')` clears it before the component remounts. `selected` would
       always evaluate to `undefined`; there is no reachable state it would render for
 
-Phase 6, in progress:
+Phase 6, closed:
 
 - [x] **(C)** `GET /api/appointments/me` echoes `timeZone` — the same reasoning `/api/availability`
       already carries it. Both new screens below render `startsAt` and neither had a source for the
@@ -263,18 +263,42 @@ Phase 6, in progress:
       came back from Postgres, then confirmed a future date of birth is refused client-side with no
       network call at all
 
+- [x] **(C)** Reschedule — the last piece of Phase 6. The server, its contract and `db:reschedule`
+      were already Phase 4's; this session is `client/src/reschedule/` only.
+      `use-reschedule-params.ts` is its own URL-backed hook (provider → date → time, no service
+      question) rather than a generalised `use-booking-params` — the two flows differ everywhere
+      else too (already authenticated, no notes field, a different mutation). `ChooseProvider`,
+      `ChooseDate` and `ChooseTime` are reused unmodified; `RescheduleConfirm.tsx` is bespoke. The
+      provider is re-askable, not fixed to who it already is — the contract's own reasoning:
+      "a move often is a change of provider." `/appointments/:id/reschedule`, guarded, and a
+      `Reschedule` link on `MyAppointments` gated exactly like Cancel
+- [x] 🎯 20 client tests: the step order, an answer forgetting what depended on it, Back, a
+      lost-race 409, and the PATCH body carrying only `providerId` and `startsAt` — nothing the
+      contract doesn't ask for
+- [x] 🎯 Exercised live against the seeded dev server, signed in as Elena Marsh: moved her Routine
+      Cleaning from Naomi Clarke 8:00 AM to 1:00 PM the same day, watched the list update, moved it
+      back. Surfaced a real gap doing it — see Active Blockers
+
 ## Current Task
 
-- [ ] None. Profile & insurance is closed and exercised for real. Reschedule is next — the last
-      piece of Phase 6
+- [ ] None. Reschedule is closed and exercised live — Phase 6 is complete.
 
 ## Next
 
-- [ ] **Reschedule** — the harder remaining piece. Likely reuses the booking flow's date/time
-      steps, scoped to one appointment's existing service and provider rather than a fresh choice
+- [ ] **Phase 7 — Admin** (`docs/roadmap.md`): day/week calendar, working hours, time off, clinic
+      closures, confirm/complete/no-show. Not broken into tasks yet
 
 ## Active Blockers
 
+- **The reschedule picker doesn't exclude the appointment being moved.** `GET /api/availability`
+  is public and unauthenticated, so it can't safely take an arbitrary `excludeAppointmentId` the
+  way `rescheduleAppointment`'s own internal re-check does. A patient rescheduling with their
+  current provider sees fewer real openings than exist, worst around the appointment's own current
+  time — seen live: Naomi Clarke's Monday showed nothing before 10:15 AM with her named
+  specifically, the patient's own about-to-be-vacated 8:00 slot included. The write path is
+  unaffected — the server-side re-check always excludes correctly, so nothing is ever wrongly
+  booked or refused — and "anyone available" already sidesteps it. Closing it needs a new
+  authenticated seam, not a parameter on the public endpoint
 - **The accent hue is unsettled.** Two reference sites pointed away from cobalt; all three
   candidates were measured and none is disqualified on contrast. Cobalt ships until it is decided,
   and the decision is one edit to `index.css`
@@ -295,6 +319,15 @@ Phase 6, in progress:
 
 ## Recent Decisions
 
+- **Reschedule got its own flow-state hook, not a generalised `use-booking-params`.** The two
+  flows overlap on provider/date/time but differ everywhere else — already authenticated, no notes
+  field, a different mutation, one fewer step — so parametrizing the booking flow's hook would have
+  meant carrying booking-only concerns through a flow that never uses them, and risked its tests.
+  `client/src/reschedule/` ended up close to a third of `client/src/booking/`'s size
+- **The provider is re-askable on a move, not fixed to who it already is.** Matches the contract's
+  own reasoning (`shared/src/appointments.ts`): "a move often is a change of provider." Considered
+  and declined: locking the picker to the current provider, which would have left a real server
+  capability unused
 - **Profile is its own route, not a wider `/api/me`.** `/api/me` is called on every cold load;
   phone, date of birth and insurance are the schema's most sensitive fields, so they get a route a
   patient visits once in a while instead of riding along on the one every page pays for

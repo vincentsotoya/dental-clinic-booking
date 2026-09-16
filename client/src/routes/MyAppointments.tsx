@@ -146,7 +146,12 @@ function AppointmentRow({
       </div>
 
       {cancellable && appointment.status === 'CONFIRMED' && (
-        <CancelButton appointment={appointment} />
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm" className="rounded-pill">
+            <Link to={`/appointments/${appointment.id}/reschedule`}>Reschedule</Link>
+          </Button>
+          <CancelButton appointment={appointment} />
+        </div>
       )}
     </li>
   )
