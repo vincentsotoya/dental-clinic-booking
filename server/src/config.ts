@@ -36,3 +36,14 @@ export const SLOT_GRID_MINS = 15
  * a trivially cheap request to send and an expensive one to serve.
  */
 export const MAX_AVAILABILITY_DAYS = 90
+
+/**
+ * The longest range the admin calendar may ask for in one request.
+ *
+ * A generous ceiling rather than availability's cost-driven one: reading
+ * booked appointments is one indexed query, not a per-day-per-provider
+ * computation, so the guard here exists only to stop an accidental
+ * `?to=2099-01-01` rather than to protect the server from its own request.
+ * Well past a week, which is the widest this calendar draws today.
+ */
+export const MAX_ADMIN_RANGE_DAYS = 31

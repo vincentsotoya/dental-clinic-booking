@@ -11,6 +11,7 @@
 // step asks for sign-in itself, carrying the whole booking in its URL.
 
 import { createBrowserRouter } from 'react-router'
+import AdminCalendar from './admin/AdminCalendar'
 import AdminHome from './routes/AdminHome'
 import { RequireAuth } from './auth/RequireAuth'
 import PublicLayout from './routes/PublicLayout'
@@ -57,7 +58,10 @@ export const router = createBrowserRouter([
   // confirm/complete/no-show — nest under this same guard.
   {
     element: <RequireAuth roles={['ADMIN']} />,
-    children: [{ path: '/admin', element: <AdminHome /> }],
+    children: [
+      { path: '/admin', element: <AdminHome /> },
+      { path: '/admin/calendar', element: <AdminCalendar /> },
+    ],
   },
   // Outside `PublicLayout`: a screen whose whole job is one short form does
   // not want a nav offering four ways to leave it. Both carry `?next=`.

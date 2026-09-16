@@ -9,6 +9,7 @@
 // hours, time off, clinic closures, confirm/complete/no-show — add their own
 // sections here; this is only the shell and the proof that the guard works.
 
+import { Link } from 'react-router'
 import { useSession, useSignOut } from '@/auth/use-session'
 import { Button } from '@/components/ui/button'
 
@@ -31,6 +32,10 @@ export default function AdminHome() {
           Sign out
         </Button>
       </header>
+
+      <Button asChild className="mt-8 rounded-pill">
+        <Link to="/admin/calendar">Calendar</Link>
+      </Button>
     </div>
   )
 }

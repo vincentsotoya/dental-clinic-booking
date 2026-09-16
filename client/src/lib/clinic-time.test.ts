@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { civilDateOf } from './clinic-time'
+import { civilDateOf, weekRange } from './clinic-time'
 
 // The one instant-to-civil-date conversion this module does not get for free
 // from a slot's own `date` field — `/api/appointments/me` carries no civil
@@ -19,5 +19,22 @@ describe('civilDateOf', () => {
   it('disagrees with a naive UTC read — the bug this exists to prevent', () => {
     const instant = '2026-10-07T02:30:00.000Z'
     expect(civilDateOf(instant, 'America/New_York')).not.toBe(instant.slice(0, 10))
+  })
+})
+
+describe('weekRange', () => {
+  it('spans Monday to Sunday for a date mid-week', () => {
+    // Wednesday, September 23, 2026.
+    expect(weekRange(new Date(2026, 8, 23))).toEqual({ from: '2026-09-21', to: '2026-09-27' })
+  })
+
+  it('a Monday is its own start', () => {
+    expect(weekRange(new Date(2026, 8, 21))).toEqual({ from: '2026-09-21', to: '2026-09-27' })
+  })
+
+  // getDay() reads 0 for Sunday, the one day the general formula would walk
+  // forward instead of back if `day === 0` were not handled on its own.
+  it('a Sunday belongs to the week that is ending, not the one starting', () => {
+    expect(weekRange(new Date(2026, 8, 27))).toEqual({ from: '2026-09-21', to: '2026-09-27' })
   })
 })

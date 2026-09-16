@@ -7,7 +7,7 @@
 // current.
 
 import type { AppointmentWindow } from '@dental/shared'
-import type { AvailabilityParams } from './endpoints'
+import type { AdminAppointmentsParams, AvailabilityParams } from './endpoints'
 
 export const queryKeys = {
   health: () => ['health'] as const,
@@ -25,4 +25,7 @@ export const queryKeys = {
 
   appointments: () => ['appointments'] as const,
   myAppointments: (when?: AppointmentWindow) => ['appointments', 'me', when ?? 'upcoming'] as const,
+
+  adminAppointments: (params: AdminAppointmentsParams) =>
+    ['admin', 'appointments', params] as const,
 } as const

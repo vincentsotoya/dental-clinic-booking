@@ -114,6 +114,24 @@ export function addCivilDays(value: string, days: number): string {
  * browser's yesterday covers the clinic's today from any zone on earth. Past
  * dates cost nothing to ask for: the lead time means they carry no slots.
  */
+/**
+ * Monday through Sunday, the calendar week `date` falls in.
+ *
+ * No lead-time clamp the way `monthRange` has — that reasoning is booking's
+ * own (a patient cannot ask for a slot in the past), and does not apply to an
+ * admin looking at what already happened this week.
+ */
+export function weekRange(date: Date): { from: string; to: string } {
+  // getDay(): 0 Sunday .. 6 Saturday. Days back to Monday: Sunday needs 6,
+  // every other day needs one less than its own index.
+  const day = date.getDay()
+  const mondayOffset = day === 0 ? -6 : 1 - day
+  const monday = localDateToCivil(
+    new Date(date.getFullYear(), date.getMonth(), date.getDate() + mondayOffset),
+  )
+  return { from: monday, to: addCivilDays(monday, 6) }
+}
+
 export function monthRange(date: Date): { from: string; to: string } {
   const firstOfMonth = localDateToCivil(new Date(date.getFullYear(), date.getMonth(), 1))
   const lastOfMonth = localDateToCivil(new Date(date.getFullYear(), date.getMonth() + 1, 0))

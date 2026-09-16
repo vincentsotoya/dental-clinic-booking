@@ -7,6 +7,7 @@
 // them against the real server outside a browser.
 
 import {
+  adminAppointmentsResponse,
   availabilityResponse,
   healthResponse,
   bookAppointmentResponse,
@@ -18,6 +19,8 @@ import {
   servicesResponse,
   rescheduleAppointmentResponse,
   updateProfileResponse,
+  type AdminAppointmentsErrorCode,
+  type AdminAppointmentsResponse,
   type AvailabilityErrorCode,
   type AvailabilityResponse,
   type AppointmentWindow,
@@ -161,6 +164,25 @@ export const updateProfile = (
     body,
     ...options,
   })
+
+export type AdminAppointmentsParams = {
+  /** Civil dates, `YYYY-MM-DD`, in the clinic's zone. `to` may equal `from` for a single day. */
+  from: string
+  to: string
+}
+
+/** The clinic's own read of the schedule — every patient, over a date range. */
+export const getAdminAppointments = (
+  params: AdminAppointmentsParams,
+  options: Signal = {},
+): Promise<AdminAppointmentsResponse> => {
+  const query = new URLSearchParams(params)
+  return request<AdminAppointmentsResponse, AdminAppointmentsErrorCode>({
+    path: `/admin/appointments?${query}`,
+    schema: adminAppointmentsResponse,
+    ...options,
+  })
+}
 
 /** Move an appointment. Same id comes back, at its new time. */
 export const rescheduleAppointment = (

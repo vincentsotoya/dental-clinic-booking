@@ -303,14 +303,43 @@ Phase 7, in progress:
       `trustedOrigins` is pinned to `CLIENT_ORIGIN`, so a port drift is a silent CSRF-shaped failure.
       Not a product bug; killing the orphan and restarting on 5173 fixed it
 
+- [x] **(C)** The day/week calendar — an agenda, not a grid. Two design forks decided up front:
+      chronological list over a provider-column grid, and week as the day view repeated seven times
+      under a heading rather than a second layout. One row component serves both. `GET
+      /api/admin/appointments` (`shared/src/admin.ts`) is a third projection of the appointment row
+      — `appointments.ts`'s patient view answers "what is mine", this answers "what is happening",
+      across every patient, and carries the room and the patient's identity, both of which the
+      patient-facing contract withholds on purpose. Filtered by `startsAt` alone, not by the
+      collision-window overlap availability uses — a display wants "what starts today", not a
+      bookability question. `MAX_ADMIN_RANGE_DAYS = 31`, generous rather than cost-driven: this is
+      one indexed read, not a per-day-per-provider computation
+- [x] 🎯 8 server route tests plus 7 contract tests: every status included (a front desk that
+      cannot see a cancellation concludes the clinic lost it, the same reasoning
+      `myAppointmentsResponse` already carries), `RANGE_INVERTED`/`RANGE_TOO_LONG` for real, no
+      `NOT_FOUND` in the contract — nothing here is addressed by an id
+- [x] 🎯 7 client tests over `AdminCalendar.tsx`: which day is requested, how a week groups by day,
+      an empty day says so instead of vanishing, a load failure offers a retry. Falsified once by a
+      genuine bug the test caught: a fixture's `patient.id` wasn't a real UUID, so
+      `adminAppointmentsResponse.parse()` threw and the query surfaced as `LoadFailed` — proof the
+      client really does parse the response rather than trust it
+- [x] 🎯 `npm run db:admin-calendar`, 13 checks against real Postgres: the seed's own Monday (read
+      off `cleaningMon`'s real `startsAt`, not recomputed, since `prisma/seed.ts`'s `nextMonday()`
+      moves with the calendar) returns both of that day's appointments, naming two different
+      patients in one call — the thing no patient-scoped route can ever answer. A week returns all
+      ten seeded appointments. A row cancelled directly in Postgres stays visible, marked
+      `CANCELLED`, restored after
+- [x] 🎯 Exercised live: signed in as Dana Whitfield, walked Day to Monday and saw both seeded
+      appointments — Elena Marsh 8:00 AM and Victor Nakamura 9:15 AM, both with Naomi Clarke — then
+      Week and saw the full ten across the week with the three empty days each saying so
+
 ## Current Task
 
-- [ ] None. Admin access foundation is closed and exercised live.
+- [ ] None. The day/week calendar is closed and exercised live.
 
 ## Next
 
-- [ ] **Phase 7 — Admin**, the remaining pieces: day/week calendar, working hours, time off, clinic
-      closures, confirm/complete/no-show (`docs/roadmap.md`). Not broken into tasks yet
+- [ ] **Phase 7 — Admin**, the remaining pieces: working hours, time off, clinic closures,
+      confirm/complete/no-show (`docs/roadmap.md`). Not broken into tasks yet
 
 ## Active Blockers
 

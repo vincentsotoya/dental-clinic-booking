@@ -19,7 +19,8 @@
     "db:reschedule": "tsx scripts/check-reschedule.ts",
     "db:events": "tsx scripts/check-events.ts",
     "db:catalogue": "tsx scripts/check-catalogue.ts",
-    "db:profile": "tsx scripts/check-profile.ts"
+    "db:profile": "tsx scripts/check-profile.ts",
+    "db:admin-calendar": "tsx scripts/check-admin-calendar.ts"
   },
   "dependencies": {
     "@dental/shared": "*",

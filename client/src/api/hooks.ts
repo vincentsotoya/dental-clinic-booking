@@ -8,6 +8,7 @@
 
 import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query'
 import type {
+  AdminAppointmentsResponse,
   AppointmentWindow,
   AvailabilityResponse,
   HealthResponse,
@@ -23,6 +24,7 @@ import type {
 import {
   bookAppointment,
   cancelAppointment,
+  getAdminAppointments,
   getAvailability,
   getHealth,
   getMe,
@@ -32,6 +34,7 @@ import {
   getServices,
   rescheduleAppointment,
   updateProfile,
+  type AdminAppointmentsParams,
   type AvailabilityParams,
 } from './endpoints'
 import { queryKeys } from './keys'
@@ -106,6 +109,17 @@ export const useMyAppointments = (
   useQuery({
     queryKey: queryKeys.myAppointments(when),
     queryFn: ({ signal }) => getMyAppointments(when, { signal }),
+    ...options,
+  })
+
+/** The clinic's own read of the schedule — every patient, over a date range. */
+export const useAdminAppointments = (
+  params: AdminAppointmentsParams,
+  options: QueryTuning<AdminAppointmentsResponse> = {},
+) =>
+  useQuery({
+    queryKey: queryKeys.adminAppointments(params),
+    queryFn: ({ signal }) => getAdminAppointments(params, { signal }),
     ...options,
   })
 

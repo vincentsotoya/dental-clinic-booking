@@ -8,6 +8,7 @@ import express from 'express'
 import { toNodeHandler } from 'better-auth/node'
 import { type AuthDeps, createAuthMiddleware } from './middleware/auth'
 import { createRequireOwnership } from './middleware/ownership'
+import { type AdminDeps, createAdminRouter } from './routes/admin'
 import { type AppointmentsDeps, createAppointmentsRouter } from './routes/appointments'
 import { type AvailabilityDeps, createAvailabilityRouter } from './routes/availability'
 import { type CatalogueDeps, createCatalogueRouter } from './routes/catalogue'
@@ -21,11 +22,12 @@ export type AppDeps = HealthDeps &
   CatalogueDeps &
   AuthDeps &
   Omit<ProfileDeps, 'requireAuth'> &
-  Omit<AppointmentsDeps, 'requireAuth' | 'requireOwnership'>
+  Omit<AppointmentsDeps, 'requireAuth' | 'requireOwnership'> &
+  Omit<AdminDeps, 'requireRole'>
 
 export function createApp(deps: AppDeps): express.Express {
   const app = express()
-  const { attachSession, requireAuth } = createAuthMiddleware(deps)
+  const { attachSession, requireAuth, requireRole } = createAuthMiddleware(deps)
   const requireOwnership = createRequireOwnership({ db: deps.db, requireAuth })
 
   // Above express.json(), and that ordering is load-bearing: a body parser consumes
@@ -43,6 +45,7 @@ export function createApp(deps: AppDeps): express.Express {
   app.use('/api', createMeRouter({ ...deps, attachSession }))
   app.use('/api', createProfileRouter({ ...deps, requireAuth }))
   app.use('/api', createAppointmentsRouter({ ...deps, requireAuth, requireOwnership }))
+  app.use('/api', createAdminRouter({ ...deps, requireRole }))
 
   // Last, and after the routes: Express picks error middleware by its four
   // arguments and only consults what was registered after the thrower.
