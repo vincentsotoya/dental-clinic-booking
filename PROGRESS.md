@@ -279,14 +279,38 @@ Phase 6, closed:
       Cleaning from Naomi Clarke 8:00 AM to 1:00 PM the same day, watched the list update, moved it
       back. Surfaced a real gap doing it — see Active Blockers
 
+Phase 7, in progress:
+
+- [x] **(C)** Admin access foundation — the first task, chosen over the calendar and
+      confirm/complete/no-show so those build on something proven first. Both guards already
+      existed, unused: server `requireRole` (`middleware/auth.ts`) and the client `RequireAuth`
+      `roles` prop, both forward-built and tested in Phase 3 with nothing yet wired to them. This
+      task is that first wiring: `/admin`, its own top-level branch outside `PublicLayout` — the
+      clinic's marketing nav has nothing an admin wants, the same reasoning that keeps sign-in and
+      sign-up out of it — and `AdminHome.tsx`, deliberately minimal: identity and sign-out, the
+      shell every later Phase 7 screen sits under. One shared `ADMIN` login for now, not
+      per-provider — matches what is seeded (`dana.whitfield@example.com`) and
+      `appointment-events.ts` already records `actor.role`, which is enough to log who acted
+      without per-provider auth
+- [x] 🎯 3 client tests proving the real wiring rather than the generic mechanism
+      (`RequireAuth.test.tsx` already covers that): an admin reaches `/admin` and is named on it, a
+      signed-in patient is sent home, an anonymous visitor is sent to sign in
+- [x] 🎯 Exercised live against the seeded dev server, all three outcomes: signed in as Elena Marsh
+      (PATIENT), `/admin` redirected to `/`; signed out, `/admin` redirected to
+      `/sign-in?next=%2Fadmin`; signed in as Dana Whitfield (ADMIN), `/admin` rendered and named her.
+      Caught live, unrelated to the guard itself: Better Auth's sign-out 403'd when the dev client
+      happened to start on port 5174 (5173 was held by an orphaned process from the prior session) —
+      `trustedOrigins` is pinned to `CLIENT_ORIGIN`, so a port drift is a silent CSRF-shaped failure.
+      Not a product bug; killing the orphan and restarting on 5173 fixed it
+
 ## Current Task
 
-- [ ] None. Reschedule is closed and exercised live — Phase 6 is complete.
+- [ ] None. Admin access foundation is closed and exercised live.
 
 ## Next
 
-- [ ] **Phase 7 — Admin** (`docs/roadmap.md`): day/week calendar, working hours, time off, clinic
-      closures, confirm/complete/no-show. Not broken into tasks yet
+- [ ] **Phase 7 — Admin**, the remaining pieces: day/week calendar, working hours, time off, clinic
+      closures, confirm/complete/no-show (`docs/roadmap.md`). Not broken into tasks yet
 
 ## Active Blockers
 

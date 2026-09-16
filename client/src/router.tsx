@@ -11,6 +11,7 @@
 // step asks for sign-in itself, carrying the whole booking in its URL.
 
 import { createBrowserRouter } from 'react-router'
+import AdminHome from './routes/AdminHome'
 import { RequireAuth } from './auth/RequireAuth'
 import PublicLayout from './routes/PublicLayout'
 import Book from './booking/Book'
@@ -49,6 +50,14 @@ export const router = createBrowserRouter([
       // Last, and public: an unknown URL is not a reason to ask who someone is.
       { path: '*', element: <NotFound /> },
     ],
+  },
+  // Outside `PublicLayout` too: the clinic's own nav has nothing an admin
+  // wants, the same reasoning that keeps sign-in and sign-up out of it. Phase
+  // 7's later screens — the calendar, working hours, time off, closures,
+  // confirm/complete/no-show — nest under this same guard.
+  {
+    element: <RequireAuth roles={['ADMIN']} />,
+    children: [{ path: '/admin', element: <AdminHome /> }],
   },
   // Outside `PublicLayout`: a screen whose whole job is one short form does
   // not want a nav offering four ways to leave it. Both carry `?next=`.
