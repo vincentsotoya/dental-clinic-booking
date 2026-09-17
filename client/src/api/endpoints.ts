@@ -9,6 +9,7 @@
 import {
   adminAppointmentsResponse,
   availabilityResponse,
+  getWorkingHoursResponse,
   healthResponse,
   bookAppointmentResponse,
   cancelAppointmentResponse,
@@ -19,6 +20,7 @@ import {
   servicesResponse,
   rescheduleAppointmentResponse,
   updateProfileResponse,
+  updateWorkingHoursResponse,
   type AdminAppointmentsErrorCode,
   type AdminAppointmentsResponse,
   type AvailabilityErrorCode,
@@ -31,6 +33,8 @@ import {
   type CancelAppointmentResponse,
   type GetProfileErrorCode,
   type GetProfileResponse,
+  type GetWorkingHoursErrorCode,
+  type GetWorkingHoursResponse,
   type HealthResponse,
   type MeResponse,
   type MyAppointmentsErrorCode,
@@ -43,6 +47,9 @@ import {
   type UpdateProfileErrorCode,
   type UpdateProfileRequest,
   type UpdateProfileResponse,
+  type UpdateWorkingHoursErrorCode,
+  type UpdateWorkingHoursRequest,
+  type UpdateWorkingHoursResponse,
 } from '@dental/shared'
 import { request } from './client'
 
@@ -183,6 +190,31 @@ export const getAdminAppointments = (
     ...options,
   })
 }
+
+/** A provider's recurring weekly window — the admin's own edit of it. */
+export const getWorkingHours = (
+  providerId: string,
+  options: Signal = {},
+): Promise<GetWorkingHoursResponse> =>
+  request<GetWorkingHoursResponse, GetWorkingHoursErrorCode>({
+    path: `/admin/providers/${providerId}/working-hours`,
+    schema: getWorkingHoursResponse,
+    ...options,
+  })
+
+/** Every window, stated: the screen has one save button over one week, so there is no partial update. */
+export const updateWorkingHours = (
+  providerId: string,
+  body: UpdateWorkingHoursRequest,
+  options: Signal = {},
+): Promise<UpdateWorkingHoursResponse> =>
+  request<UpdateWorkingHoursResponse, UpdateWorkingHoursErrorCode>({
+    path: `/admin/providers/${providerId}/working-hours`,
+    schema: updateWorkingHoursResponse,
+    method: 'PATCH',
+    body,
+    ...options,
+  })
 
 /** Move an appointment. Same id comes back, at its new time. */
 export const rescheduleAppointment = (

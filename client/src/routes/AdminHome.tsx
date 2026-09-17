@@ -33,9 +33,14 @@ export default function AdminHome() {
         </Button>
       </header>
 
-      <Button asChild className="mt-8 rounded-pill">
-        <Link to="/admin/calendar">Calendar</Link>
-      </Button>
+      <div className="mt-8 flex flex-wrap gap-3">
+        <Button asChild className="rounded-pill">
+          <Link to="/admin/calendar">Calendar</Link>
+        </Button>
+        <Button asChild variant="outline" className="rounded-pill">
+          <Link to="/admin/working-hours">Working hours</Link>
+        </Button>
+      </div>
     </div>
   )
 }

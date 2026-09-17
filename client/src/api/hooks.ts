@@ -11,6 +11,7 @@ import type {
   AdminAppointmentsResponse,
   AppointmentWindow,
   AvailabilityResponse,
+  GetWorkingHoursResponse,
   HealthResponse,
   BookAppointmentRequest,
   GetProfileResponse,
@@ -20,6 +21,7 @@ import type {
   RescheduleAppointmentRequest,
   ServicesResponse,
   UpdateProfileRequest,
+  UpdateWorkingHoursRequest,
 } from '@dental/shared'
 import {
   bookAppointment,
@@ -32,8 +34,10 @@ import {
   getProfile,
   getProviders,
   getServices,
+  getWorkingHours,
   rescheduleAppointment,
   updateProfile,
+  updateWorkingHours,
   type AdminAppointmentsParams,
   type AvailabilityParams,
 } from './endpoints'
@@ -122,6 +126,38 @@ export const useAdminAppointments = (
     queryFn: ({ signal }) => getAdminAppointments(params, { signal }),
     ...options,
   })
+
+/** A provider's recurring weekly window, as the admin editor reads it. */
+export const useWorkingHours = (
+  providerId: string,
+  options: QueryTuning<GetWorkingHoursResponse> = {},
+) =>
+  useQuery({
+    queryKey: queryKeys.workingHours(providerId),
+    queryFn: ({ signal }) => getWorkingHours(providerId, { signal }),
+    ...options,
+  })
+
+/**
+ * Writes the whole week and hands back what Postgres now holds.
+ *
+ * `setQueryData`, the same reasoning `useUpdateProfile` already carries: the
+ * response already is the new week. Availability is invalidated too — a
+ * changed window is a changed answer to "when can this be booked", the one
+ * thing this mutation can never leave stale underneath it.
+ */
+export const useUpdateWorkingHours = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (args: { providerId: string; body: UpdateWorkingHoursRequest }) =>
+      updateWorkingHours(args.providerId, args.body),
+    onSuccess: (data, variables) => {
+      queryClient.setQueryData(queryKeys.workingHours(variables.providerId), data)
+      return queryClient.invalidateQueries({ queryKey: queryKeys.availability() })
+    },
+  })
+}
 
 /** Phone, date of birth and insurance. Not called on every load, unlike `useMe`. */
 export const useProfile = (options: QueryTuning<GetProfileResponse> = {}) =>

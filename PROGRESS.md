@@ -332,14 +332,37 @@ Phase 7, in progress:
       appointments — Elena Marsh 8:00 AM and Victor Nakamura 9:15 AM, both with Naomi Clarke — then
       Week and saw the full ten across the week with the three empty days each saying so
 
+- [x] **(C)** Working hours — `GET`/`PATCH /api/admin/providers/:providerId/working-hours`.
+      `WorkingHours` already existed (Phase 1); this is the admin's first read and write of it. A
+      PATCH states the whole week and the server deletes-and-recreates the provider's rows in one
+      transaction — `profile.ts`'s "states everything, no merge patch" rule, extended from a
+      column list to a table with no row identity of its own. `workingHoursWeek` in
+      `shared/src/working-hours.ts` rejects two overlapping windows on the same weekday — the one
+      thing `working_hours_valid_window`'s per-row `CHECK` cannot express, which the engine would
+      otherwise silently union. `client/src/admin/AdminWorkingHours.tsx` at `/admin/working-hours`:
+      a provider picker, `<input type="time">` per window, one save button
+- [x] 🎯 13 shared contract tests (overlap in both orders, back-to-back windows that share an
+      endpoint, an empty week) plus 12 server route tests. 7 client tests, falsified once for real:
+      Radix's `Select` warned about switching controlled/uncontrolled until the "no selection"
+      state became `''` instead of `undefined`
+- [x] 🎯 `npm run db:working-hours`, 15 checks against real Postgres: a PATCH really deletes all
+      ten of Naomi Clarke's seeded rows and writes back only what was sent, an overlap is refused
+      before the transaction touches anything, and a provider that does not exist 404s on both
+      verbs and creates no orphan rows. Her seeded week is restored after, proven by rerunning the
+      script and getting the same "ten windows" result again
+- [x] 🎯 Exercised live against the seeded dev server, signed in as Dana Whitfield: Dr Osei's
+      Mon–Fri hours loaded correctly, adding a Saturday window enabled Save, saving and cold-
+      reloading showed it persisted in Postgres (not just the query cache), then removed and saved
+      again to restore her seeded week — confirmed by one more reload
+
 ## Current Task
 
-- [ ] None. The day/week calendar is closed and exercised live.
+- [ ] None. Working hours is closed and exercised live.
 
 ## Next
 
-- [ ] **Phase 7 — Admin**, the remaining pieces: working hours, time off, clinic closures,
-      confirm/complete/no-show (`docs/roadmap.md`). Not broken into tasks yet
+- [ ] **Phase 7 — Admin**, the remaining pieces: time off, clinic closures, confirm/complete/no-show
+      (`docs/roadmap.md`). Not broken into tasks yet
 
 ## Active Blockers
 

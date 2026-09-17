@@ -39,7 +39,13 @@ function stubDb(service: unknown = SERVICE): AvailabilityDb {
 function app(db: AvailabilityDb = stubDb()) {
   // Availability is public; the auth and booking halves of AppDeps are here
   // only because createApp mounts every router.
-  const stub = { ...db, ...stubPatientDb(null) }
+  const stub = {
+    ...db,
+    ...stubPatientDb(null),
+    // Unused by this route; only here because createApp mounts the admin
+    // working-hours router too and its dep type asks for it.
+    workingHours: { findMany: async () => [] },
+  }
 
   return createApp({
     db: { ...stub, ...stubTransaction(stub) },
@@ -47,7 +53,7 @@ function app(db: AvailabilityDb = stubDb()) {
     databaseIsReachable: async () => true,
     timeZone: 'America/New_York',
     now: () => new Date('2026-01-01T00:00:00.000Z'),
-  })
+  } as unknown as Parameters<typeof createApp>[0])
 }
 
 const get = (query: string, db?: AvailabilityDb) =>

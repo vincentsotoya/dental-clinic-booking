@@ -20,7 +20,8 @@
     "db:events": "tsx scripts/check-events.ts",
     "db:catalogue": "tsx scripts/check-catalogue.ts",
     "db:profile": "tsx scripts/check-profile.ts",
-    "db:admin-calendar": "tsx scripts/check-admin-calendar.ts"
+    "db:admin-calendar": "tsx scripts/check-admin-calendar.ts",
+    "db:working-hours": "tsx scripts/check-working-hours.ts"
   },
   "dependencies": {
     "@dental/shared": "*",

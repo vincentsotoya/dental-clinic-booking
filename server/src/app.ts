@@ -9,6 +9,7 @@ import { toNodeHandler } from 'better-auth/node'
 import { type AuthDeps, createAuthMiddleware } from './middleware/auth'
 import { createRequireOwnership } from './middleware/ownership'
 import { type AdminDeps, createAdminRouter } from './routes/admin'
+import { type AdminWorkingHoursDeps, createAdminWorkingHoursRouter } from './routes/admin-working-hours'
 import { type AppointmentsDeps, createAppointmentsRouter } from './routes/appointments'
 import { type AvailabilityDeps, createAvailabilityRouter } from './routes/availability'
 import { type CatalogueDeps, createCatalogueRouter } from './routes/catalogue'
@@ -23,7 +24,8 @@ export type AppDeps = HealthDeps &
   AuthDeps &
   Omit<ProfileDeps, 'requireAuth'> &
   Omit<AppointmentsDeps, 'requireAuth' | 'requireOwnership'> &
-  Omit<AdminDeps, 'requireRole'>
+  Omit<AdminDeps, 'requireRole'> &
+  Omit<AdminWorkingHoursDeps, 'requireRole'>
 
 export function createApp(deps: AppDeps): express.Express {
   const app = express()
@@ -46,6 +48,7 @@ export function createApp(deps: AppDeps): express.Express {
   app.use('/api', createProfileRouter({ ...deps, requireAuth }))
   app.use('/api', createAppointmentsRouter({ ...deps, requireAuth, requireOwnership }))
   app.use('/api', createAdminRouter({ ...deps, requireRole }))
+  app.use('/api', createAdminWorkingHoursRouter({ ...deps, requireRole }))
 
   // Last, and after the routes: Express picks error middleware by its four
   // arguments and only consults what was registered after the thrower.

@@ -28,4 +28,6 @@ export const queryKeys = {
 
   adminAppointments: (params: AdminAppointmentsParams) =>
     ['admin', 'appointments', params] as const,
+
+  workingHours: (providerId: string) => ['admin', 'working-hours', providerId] as const,
 } as const
