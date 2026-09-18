@@ -9,6 +9,7 @@ import { toNodeHandler } from 'better-auth/node'
 import { type AuthDeps, createAuthMiddleware } from './middleware/auth'
 import { createRequireOwnership } from './middleware/ownership'
 import { type AdminDeps, createAdminRouter } from './routes/admin'
+import { type AdminClosuresDeps, createAdminClosuresRouter } from './routes/admin-closures'
 import { type AdminTimeOffDeps, createAdminTimeOffRouter } from './routes/admin-time-off'
 import { type AdminWorkingHoursDeps, createAdminWorkingHoursRouter } from './routes/admin-working-hours'
 import { type AppointmentsDeps, createAppointmentsRouter } from './routes/appointments'
@@ -27,7 +28,8 @@ export type AppDeps = HealthDeps &
   Omit<AppointmentsDeps, 'requireAuth' | 'requireOwnership'> &
   Omit<AdminDeps, 'requireRole'> &
   Omit<AdminWorkingHoursDeps, 'requireRole'> &
-  Omit<AdminTimeOffDeps, 'requireRole'>
+  Omit<AdminTimeOffDeps, 'requireRole'> &
+  Omit<AdminClosuresDeps, 'requireRole'>
 
 export function createApp(deps: AppDeps): express.Express {
   const app = express()
@@ -52,6 +54,7 @@ export function createApp(deps: AppDeps): express.Express {
   app.use('/api', createAdminRouter({ ...deps, requireRole }))
   app.use('/api', createAdminWorkingHoursRouter({ ...deps, requireRole }))
   app.use('/api', createAdminTimeOffRouter({ ...deps, requireRole }))
+  app.use('/api', createAdminClosuresRouter({ ...deps, requireRole }))
 
   // Last, and after the routes: Express picks error middleware by its four
   // arguments and only consults what was registered after the thrower.

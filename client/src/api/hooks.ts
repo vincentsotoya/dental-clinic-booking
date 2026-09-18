@@ -11,7 +11,9 @@ import type {
   AdminAppointmentsResponse,
   AppointmentWindow,
   AvailabilityResponse,
+  CreateClosureRequestInput,
   CreateTimeOffRequestInput,
+  GetClosuresResponse,
   GetTimeOffResponse,
   GetWorkingHoursResponse,
   HealthResponse,
@@ -28,10 +30,13 @@ import type {
 import {
   bookAppointment,
   cancelAppointment,
+  createClosure,
   createTimeOff,
+  deleteClosure,
   deleteTimeOff,
   getAdminAppointments,
   getAvailability,
+  getClosures,
   getHealth,
   getMe,
   getMyAppointments,
@@ -203,6 +208,47 @@ export const useDeleteTimeOff = () => {
     onSuccess: (data, variables) => {
       queryClient.setQueryData(queryKeys.timeOff(variables.providerId), (current?: GetTimeOffResponse) =>
         current ? { ...current, timeOff: current.timeOff.filter((row) => row.id !== data.id) } : current,
+      )
+      return queryClient.invalidateQueries({ queryKey: queryKeys.availability() })
+    },
+  })
+}
+
+/** Every dated range the whole clinic is shut, as the admin editor reads them. */
+export const useClosures = (options: QueryTuning<GetClosuresResponse> = {}) =>
+  useQuery({
+    queryKey: queryKeys.closures(),
+    queryFn: ({ signal }) => getClosures({ signal }),
+    ...options,
+  })
+
+/** Adds one closure and appends it to the cached list, the same reasoning `useCreateTimeOff` gives. */
+export const useCreateClosure = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (body: CreateClosureRequestInput) => createClosure(body),
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.closures(), (current?: GetClosuresResponse) =>
+        current ? { ...current, closures: [...current.closures, data.closure] } : current,
+      )
+      // A new closure is a changed answer to "when can this be booked",
+      // across every provider — unlike time off, there is no single
+      // provider's cache to narrow this to.
+      return queryClient.invalidateQueries({ queryKey: queryKeys.availability() })
+    },
+  })
+}
+
+/** Removes one closure. */
+export const useDeleteClosure = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => deleteClosure(id),
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.closures(), (current?: GetClosuresResponse) =>
+        current ? { ...current, closures: current.closures.filter((row) => row.id !== data.id) } : current,
       )
       return queryClient.invalidateQueries({ queryKey: queryKeys.availability() })
     },

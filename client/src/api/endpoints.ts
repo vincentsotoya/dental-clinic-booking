@@ -9,8 +9,11 @@
 import {
   adminAppointmentsResponse,
   availabilityResponse,
+  createClosureResponse,
   createTimeOffResponse,
+  deleteClosureResponse,
   deleteTimeOffResponse,
+  getClosuresResponse,
   getTimeOffResponse,
   getWorkingHoursResponse,
   healthResponse,
@@ -34,11 +37,18 @@ import {
   type BookAppointmentResponse,
   type CancelAppointmentErrorCode,
   type CancelAppointmentResponse,
+  type CreateClosureErrorCode,
+  type CreateClosureRequestInput,
+  type CreateClosureResponse,
   type CreateTimeOffErrorCode,
   type CreateTimeOffRequestInput,
   type CreateTimeOffResponse,
+  type DeleteClosureErrorCode,
+  type DeleteClosureResponse,
   type DeleteTimeOffErrorCode,
   type DeleteTimeOffResponse,
+  type GetClosuresErrorCode,
+  type GetClosuresResponse,
   type GetProfileErrorCode,
   type GetProfileResponse,
   type GetTimeOffErrorCode,
@@ -253,6 +263,36 @@ export const deleteTimeOff = (id: string, options: Signal = {}): Promise<DeleteT
   request<DeleteTimeOffResponse, DeleteTimeOffErrorCode>({
     path: `/admin/time-off/${id}`,
     schema: deleteTimeOffResponse,
+    method: 'DELETE',
+    ...options,
+  })
+
+/** Every dated range the whole clinic is shut, across every provider. */
+export const getClosures = (options: Signal = {}): Promise<GetClosuresResponse> =>
+  request<GetClosuresResponse, GetClosuresErrorCode>({
+    path: '/admin/closures',
+    schema: getClosuresResponse,
+    ...options,
+  })
+
+/** Add one closure. 409s if it would strand a CONFIRMED appointment, any provider. */
+export const createClosure = (
+  body: CreateClosureRequestInput,
+  options: Signal = {},
+): Promise<CreateClosureResponse> =>
+  request<CreateClosureResponse, CreateClosureErrorCode>({
+    path: '/admin/closures',
+    schema: createClosureResponse,
+    method: 'POST',
+    body,
+    ...options,
+  })
+
+/** Remove one closure, by its own id. */
+export const deleteClosure = (id: string, options: Signal = {}): Promise<DeleteClosureResponse> =>
+  request<DeleteClosureResponse, DeleteClosureErrorCode>({
+    path: `/admin/closures/${id}`,
+    schema: deleteClosureResponse,
     method: 'DELETE',
     ...options,
   })

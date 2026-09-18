@@ -22,7 +22,8 @@
     "db:profile": "tsx scripts/check-profile.ts",
     "db:admin-calendar": "tsx scripts/check-admin-calendar.ts",
     "db:working-hours": "tsx scripts/check-working-hours.ts",
-    "db:time-off": "tsx scripts/check-time-off.ts"
+    "db:time-off": "tsx scripts/check-time-off.ts",
+    "db:closures": "tsx scripts/check-closures.ts"
   },
   "dependencies": {
     "@dental/shared": "*",

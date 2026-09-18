@@ -32,4 +32,6 @@ export const queryKeys = {
   workingHours: (providerId: string) => ['admin', 'working-hours', providerId] as const,
 
   timeOff: (providerId: string) => ['admin', 'time-off', providerId] as const,
+
+  closures: () => ['admin', 'closures'] as const,
 } as const

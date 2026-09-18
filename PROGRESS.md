@@ -380,14 +380,36 @@ Phase 7, in progress:
       watched it disappear, then tried to add time off over Naomi Clarke's seeded Monday and saw
       the real conflict message — "This overlaps 2 confirmed appointments" — with nothing written
 
+- [x] **(C)** Clinic closures — `GET`/`POST /api/admin/closures`, `DELETE /api/admin/closures/:id`.
+      The same shape time off just settled, minus the provider dimension: no `:providerId` anywhere,
+      no picker on `client/src/admin/AdminClosures.tsx` at `/admin/closures`, and the conflict check
+      spans every provider rather than one. `shared/src/clinic-closures.ts` and
+      `server/src/services/admin-closures.ts` mirror `time-off.ts`'s reasoning: civil dates only,
+      never an instant; `CLOSURE_CONFLICT` (409) blocks a range overlapping any `CONFIRMED`
+      appointment, checked whichever direction time runs
+- [x] 🎯 12 server route tests plus the shared contract; 7 client tests, clean on the first run —
+      the two real bugs this shape exposed (a fake UUID silently swallowing a mutation's success,
+      sending the parsed `ClinicDate` instead of the raw wire strings) were both caught and fixed
+      by time off's own tests, so closures inherited the fix rather than repeating the mistake
+- [x] 🎯 `npm run db:closures`, 12 checks against real Postgres: the seeded training day's stored
+      instant round-trips to the same civil day a fresh `createClinicCalendar` derives
+      independently, a POST does not disturb it, and a planted `CONFIRMED` appointment for a
+      provider the closure never named still blocks it with `409 CLOSURE_CONFLICT`. Every row this
+      script touches is deleted before it exits
+- [x] 🎯 Exercised live against the seeded dev server, signed in as Dana Whitfield: added a
+      Thanksgiving range and watched it appear instantly with no picker to select first, removed it
+      through the confirm dialog, then tried to close the clinic over Naomi Clarke's seeded Monday
+      and saw "This overlaps 2 confirmed appointments" — the same conflict, now clinic-wide rather
+      than scoped to the one provider named in the request
+
 ## Current Task
 
-- [ ] None. Time off is closed and exercised live.
+- [ ] None. Clinic closures is closed and exercised live.
 
 ## Next
 
-- [ ] **Phase 7 — Admin**, the remaining pieces: clinic closures, confirm/complete/no-show
-      (`docs/roadmap.md`). Not broken into tasks yet
+- [ ] **Phase 7 — Admin**, the last remaining piece: confirm/complete/no-show (`docs/roadmap.md`).
+      Not broken into tasks yet
 
 ## Active Blockers
 
@@ -420,6 +442,11 @@ Phase 7, in progress:
 
 ## Recent Decisions
 
+- **Closures reused time off's shape rather than a shared abstraction.** Both are "a dated range,
+  civil dates only, conflict-checked against `CONFIRMED` appointments" — but a closure has no
+  provider, so a shared base would need a nullable `providerId` deciding what a row means, the exact
+  trade-off `ClinicClosure` already declined against `TimeOff` at the schema level (schema.prisma).
+  Two small files that agree in spirit beat one that has to ask "which kind is this row" at runtime
 - **Time off's contract never carries an instant, only civil dates.** `TimeOff` is stored as
   `timestamptz` because that is what the engine subtracts against, but CONTEXT.md's own word for it
   is "a dated range" — so `fromDate`/`toDate` are the whole wire shape, and the server is the only

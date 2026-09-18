@@ -60,6 +60,10 @@ export const apiErrorCode = z.enum([
   // Time off.
   /** Overlaps a CONFIRMED appointment for the same provider. The message says how many. */
   'TIME_OFF_CONFLICT',
+
+  // Clinic closures.
+  /** Overlaps a CONFIRMED appointment, any provider. The message says how many. */
+  'CLOSURE_CONFLICT',
 ])
 
 export type ApiErrorCode = z.infer<typeof apiErrorCode>
