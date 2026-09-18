@@ -21,7 +21,8 @@
     "db:catalogue": "tsx scripts/check-catalogue.ts",
     "db:profile": "tsx scripts/check-profile.ts",
     "db:admin-calendar": "tsx scripts/check-admin-calendar.ts",
-    "db:working-hours": "tsx scripts/check-working-hours.ts"
+    "db:working-hours": "tsx scripts/check-working-hours.ts",
+    "db:time-off": "tsx scripts/check-time-off.ts"
   },
   "dependencies": {
     "@dental/shared": "*",

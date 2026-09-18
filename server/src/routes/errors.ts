@@ -40,6 +40,7 @@ const STATUS: Record<ApiErrorCode, number> = {
   SLOT_TAKEN: 409,
   NOT_CANCELLABLE: 409,
   NOT_RESCHEDULABLE: 409,
+  TIME_OFF_CONFLICT: 409,
   INTERNAL: 500,
 }
 

@@ -25,7 +25,7 @@ type RequestOptions<Result> = {
   path: string
   /** Parsed with this on the way in. The same schema the route parsed on the way out. */
   schema: z.ZodType<Result>
-  method?: 'GET' | 'POST' | 'PATCH'
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   /** Serialised as JSON. Omitted entirely for a request that has no body. */
   body?: unknown
   signal?: AbortSignal

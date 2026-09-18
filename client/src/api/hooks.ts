@@ -11,6 +11,8 @@ import type {
   AdminAppointmentsResponse,
   AppointmentWindow,
   AvailabilityResponse,
+  CreateTimeOffRequestInput,
+  GetTimeOffResponse,
   GetWorkingHoursResponse,
   HealthResponse,
   BookAppointmentRequest,
@@ -26,6 +28,8 @@ import type {
 import {
   bookAppointment,
   cancelAppointment,
+  createTimeOff,
+  deleteTimeOff,
   getAdminAppointments,
   getAvailability,
   getHealth,
@@ -34,6 +38,7 @@ import {
   getProfile,
   getProviders,
   getServices,
+  getTimeOff,
   getWorkingHours,
   rescheduleAppointment,
   updateProfile,
@@ -154,6 +159,51 @@ export const useUpdateWorkingHours = () => {
       updateWorkingHours(args.providerId, args.body),
     onSuccess: (data, variables) => {
       queryClient.setQueryData(queryKeys.workingHours(variables.providerId), data)
+      return queryClient.invalidateQueries({ queryKey: queryKeys.availability() })
+    },
+  })
+}
+
+/** One provider's dated ranges of unavailability, as the admin editor reads them. */
+export const useTimeOff = (providerId: string, options: QueryTuning<GetTimeOffResponse> = {}) =>
+  useQuery({
+    queryKey: queryKeys.timeOff(providerId),
+    queryFn: ({ signal }) => getTimeOff(providerId, { signal }),
+    ...options,
+  })
+
+/**
+ * Adds one range and appends it to the cached list, rather than refetching
+ * for an answer the response already carries — the same reasoning
+ * `useUpdateWorkingHours` gives its own `setQueryData`. Availability is
+ * invalidated too: a new range is a changed answer to "when can this be
+ * booked" for exactly this provider.
+ */
+export const useCreateTimeOff = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (args: { providerId: string; body: CreateTimeOffRequestInput }) =>
+      createTimeOff(args.providerId, args.body),
+    onSuccess: (data, variables) => {
+      queryClient.setQueryData(queryKeys.timeOff(variables.providerId), (current?: GetTimeOffResponse) =>
+        current ? { ...current, timeOff: [...current.timeOff, data.timeOff] } : current,
+      )
+      return queryClient.invalidateQueries({ queryKey: queryKeys.availability() })
+    },
+  })
+}
+
+/** Removes one range. `providerId` travels alongside the id only to address the right cache entry. */
+export const useDeleteTimeOff = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (args: { id: string; providerId: string }) => deleteTimeOff(args.id),
+    onSuccess: (data, variables) => {
+      queryClient.setQueryData(queryKeys.timeOff(variables.providerId), (current?: GetTimeOffResponse) =>
+        current ? { ...current, timeOff: current.timeOff.filter((row) => row.id !== data.id) } : current,
+      )
       return queryClient.invalidateQueries({ queryKey: queryKeys.availability() })
     },
   })

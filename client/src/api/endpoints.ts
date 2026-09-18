@@ -9,6 +9,9 @@
 import {
   adminAppointmentsResponse,
   availabilityResponse,
+  createTimeOffResponse,
+  deleteTimeOffResponse,
+  getTimeOffResponse,
   getWorkingHoursResponse,
   healthResponse,
   bookAppointmentResponse,
@@ -31,8 +34,15 @@ import {
   type BookAppointmentResponse,
   type CancelAppointmentErrorCode,
   type CancelAppointmentResponse,
+  type CreateTimeOffErrorCode,
+  type CreateTimeOffRequestInput,
+  type CreateTimeOffResponse,
+  type DeleteTimeOffErrorCode,
+  type DeleteTimeOffResponse,
   type GetProfileErrorCode,
   type GetProfileResponse,
+  type GetTimeOffErrorCode,
+  type GetTimeOffResponse,
   type GetWorkingHoursErrorCode,
   type GetWorkingHoursResponse,
   type HealthResponse,
@@ -213,6 +223,37 @@ export const updateWorkingHours = (
     schema: updateWorkingHoursResponse,
     method: 'PATCH',
     body,
+    ...options,
+  })
+
+/** One provider's dated ranges of unavailability — whole clinic-zone days, never an instant. */
+export const getTimeOff = (providerId: string, options: Signal = {}): Promise<GetTimeOffResponse> =>
+  request<GetTimeOffResponse, GetTimeOffErrorCode>({
+    path: `/admin/providers/${providerId}/time-off`,
+    schema: getTimeOffResponse,
+    ...options,
+  })
+
+/** Add one range. 409s if it would strand a CONFIRMED appointment already on the books. */
+export const createTimeOff = (
+  providerId: string,
+  body: CreateTimeOffRequestInput,
+  options: Signal = {},
+): Promise<CreateTimeOffResponse> =>
+  request<CreateTimeOffResponse, CreateTimeOffErrorCode>({
+    path: `/admin/providers/${providerId}/time-off`,
+    schema: createTimeOffResponse,
+    method: 'POST',
+    body,
+    ...options,
+  })
+
+/** Remove one range, by its own id — never nested under a provider, unlike the two above. */
+export const deleteTimeOff = (id: string, options: Signal = {}): Promise<DeleteTimeOffResponse> =>
+  request<DeleteTimeOffResponse, DeleteTimeOffErrorCode>({
+    path: `/admin/time-off/${id}`,
+    schema: deleteTimeOffResponse,
+    method: 'DELETE',
     ...options,
   })
 

@@ -12,6 +12,7 @@
 
 import { createBrowserRouter } from 'react-router'
 import AdminCalendar from './admin/AdminCalendar'
+import AdminTimeOff from './admin/AdminTimeOff'
 import AdminWorkingHours from './admin/AdminWorkingHours'
 import AdminHome from './routes/AdminHome'
 import { RequireAuth } from './auth/RequireAuth'
@@ -63,6 +64,7 @@ export const router = createBrowserRouter([
       { path: '/admin', element: <AdminHome /> },
       { path: '/admin/calendar', element: <AdminCalendar /> },
       { path: '/admin/working-hours', element: <AdminWorkingHours /> },
+      { path: '/admin/time-off', element: <AdminTimeOff /> },
     ],
   },
   // Outside `PublicLayout`: a screen whose whole job is one short form does

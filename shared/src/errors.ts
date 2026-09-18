@@ -56,6 +56,10 @@ export const apiErrorCode = z.enum([
   'NOT_CANCELLABLE',
   /** The same, for a move rather than a cancellation. */
   'NOT_RESCHEDULABLE',
+
+  // Time off.
+  /** Overlaps a CONFIRMED appointment for the same provider. The message says how many. */
+  'TIME_OFF_CONFLICT',
 ])
 
 export type ApiErrorCode = z.infer<typeof apiErrorCode>

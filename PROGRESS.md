@@ -355,13 +355,38 @@ Phase 7, in progress:
       reloading showed it persisted in Postgres (not just the query cache), then removed and saved
       again to restore her seeded week — confirmed by one more reload
 
+- [x] **(C)** Time off — `GET`/`POST /api/admin/providers/:providerId/time-off`,
+      `DELETE /api/admin/time-off/:id`. Unlike working hours, a `TimeOff` row has its own id, so
+      writes are add/remove, not a whole-set replace. The contract speaks only in civil dates —
+      `fromDate`/`toDate`, whole clinic-zone days — never an instant; the server is the one seam
+      that converts to and from the `timestamptz` columns the engine already reads (Phase 2).
+      Creating a range that overlaps a `CONFIRMED` appointment for that provider is refused,
+      `409 TIME_OFF_CONFLICT`, checked either direction in time — a retroactive entry contradicting
+      a kept visit is as real a conflict as one that would strand a future booking.
+      `client/src/admin/AdminTimeOff.tsx` at `/admin/time-off`: the same provider picker
+      `AdminWorkingHours.tsx` uses, a list of ranges each with its own remove-with-confirm, and an
+      add form gated on the same schema the server parses with
+- [x] 🎯 15 server route tests plus the shared contract; falsified real behaviour, not just shape:
+      a stub returning 2 confirmed appointments blocks the write and nothing is created
+- [x] 🎯 `npm run db:time-off`, 15 checks against real Postgres: the seeded row's stored instant
+      round-trips to the same civil day a fresh `createClinicCalendar` derives independently, a
+      POST does not disturb the seeded row, and a planted `CONFIRMED` appointment for Dr Raman
+      really blocks an overlapping range with `409 TIME_OFF_CONFLICT` before anything is written.
+      Every row this script touches is deleted before it exits
+- [x] 🎯 8 client tests, falsified once for real: the response schema's `id: z.uuid()` caught a
+      test stub using a non-UUID id, which silently swallowed the mutation's own success
+- [x] 🎯 Exercised live against the seeded dev server, signed in as Dana Whitfield: added a range
+      for Dr Raman and watched it appear instantly, removed it through the confirm dialog and
+      watched it disappear, then tried to add time off over Naomi Clarke's seeded Monday and saw
+      the real conflict message — "This overlaps 2 confirmed appointments" — with nothing written
+
 ## Current Task
 
-- [ ] None. Working hours is closed and exercised live.
+- [ ] None. Time off is closed and exercised live.
 
 ## Next
 
-- [ ] **Phase 7 — Admin**, the remaining pieces: time off, clinic closures, confirm/complete/no-show
+- [ ] **Phase 7 — Admin**, the remaining pieces: clinic closures, confirm/complete/no-show
       (`docs/roadmap.md`). Not broken into tasks yet
 
 ## Active Blockers
@@ -395,6 +420,17 @@ Phase 7, in progress:
 
 ## Recent Decisions
 
+- **Time off's contract never carries an instant, only civil dates.** `TimeOff` is stored as
+  `timestamptz` because that is what the engine subtracts against, but CONTEXT.md's own word for it
+  is "a dated range" — so `fromDate`/`toDate` are the whole wire shape, and the server is the only
+  place that ever touches the clinic's zone. An admin in a different timezone from the clinic never
+  has to reason about it, and the client never needed a timezone-aware datetime input built for it
+- **The conflict check runs whichever direction time points, not "future appointments only."** A
+  time-off range overlapping a `CONFIRMED` appointment is refused regardless of whether that
+  appointment is past or future — asked and decided explicitly: block the write rather than allow
+  it silently (working hours' own gap) or allow it and merely report the conflict. A stored
+  contradiction between "provider was unavailable" and "provider had a confirmed visit" is worth
+  surfacing either way, and it keeps the check one query instead of two branches
 - **Reschedule got its own flow-state hook, not a generalised `use-booking-params`.** The two
   flows overlap on provider/date/time but differ everywhere else — already authenticated, no notes
   field, a different mutation, one fewer step — so parametrizing the booking flow's hook would have
