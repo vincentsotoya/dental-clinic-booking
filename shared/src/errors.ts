@@ -56,6 +56,8 @@ export const apiErrorCode = z.enum([
   'NOT_CANCELLABLE',
   /** The same, for a move rather than a cancellation. */
   'NOT_RESCHEDULABLE',
+  /** The admin's own close-out: too early, cancelled, or already closed the other way. */
+  'NOT_CLOSEABLE',
 
   // Time off.
   /** Overlaps a CONFIRMED appointment for the same provider. The message says how many. */

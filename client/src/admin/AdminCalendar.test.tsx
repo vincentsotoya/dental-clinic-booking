@@ -148,3 +148,102 @@ describe('when it fails to load', () => {
     expect(await screen.findByText(/couldn.t load/)).toBeDefined()
   })
 })
+
+// The eligibility rule itself (cancelled, too early, already closed the other
+// way) is proven server-side by admin.test.ts and against real Postgres by
+// `npm run db:complete-no-show`; this suite holds down what the calendar does
+// with it — which appointments offer the actions, and what a click sends.
+describe('closing an appointment out', () => {
+  const started = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  const notStarted = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+
+  /** One row, mutated by a PATCH the way the real server would be, and read back by the next GET. */
+  function stubCloseFlow(status: string, startsAt: string) {
+    let current = { ...row(1, '2026-01-01', 'Elena', OSEI), status, startsAt }
+
+    vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+      if (init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body)) as { outcome: string }
+        current = { ...current, status: body.outcome }
+        return new Response(JSON.stringify({ appointment: current }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      const url = new URL(String(input), 'http://localhost')
+      const from = url.searchParams.get('from') ?? ''
+      return new Response(
+        JSON.stringify({
+          range: { from, to: url.searchParams.get('to') ?? from },
+          timeZone: 'America/New_York',
+          appointments: [current],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    })
+  }
+
+  it('offers Complete and No-show once the appointment has started', async () => {
+    stubCloseFlow('CONFIRMED', started)
+    at()
+
+    await screen.findByText('Elena Test')
+    expect(screen.getByRole('button', { name: 'Complete' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'No-show' })).toBeDefined()
+  })
+
+  it('withholds both actions until the appointment starts', async () => {
+    stubCloseFlow('CONFIRMED', notStarted)
+    at()
+
+    await screen.findByText('Elena Test')
+    expect(screen.queryByRole('button', { name: 'Complete' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'No-show' })).toBeNull()
+  })
+
+  it('withholds both actions once the clinic has already closed it out', async () => {
+    stubCloseFlow('COMPLETED', started)
+    at()
+
+    await screen.findByText('Elena Test')
+    expect(screen.queryByRole('button', { name: 'Complete' })).toBeNull()
+  })
+
+  it('Complete needs no confirmation, and the row reflects it', async () => {
+    stubCloseFlow('CONFIRMED', started)
+    at()
+
+    await screen.findByText('Elena Test')
+    fireEvent.click(screen.getByRole('button', { name: 'Complete' }))
+
+    expect(await screen.findByText('completed')).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Complete' })).toBeNull()
+  })
+
+  it('No-show asks first, and does nothing until confirmed', async () => {
+    stubCloseFlow('CONFIRMED', started)
+    at()
+
+    await screen.findByText('Elena Test')
+    fireEvent.click(screen.getByRole('button', { name: 'No-show' }))
+
+    expect(await screen.findByText('Mark this a no-show?')).toBeDefined()
+    expect(screen.getByText('confirmed')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Not yet' }))
+    expect(screen.getByText('confirmed')).toBeDefined()
+  })
+
+  it('confirming No-show closes it out', async () => {
+    stubCloseFlow('CONFIRMED', started)
+    at()
+
+    await screen.findByText('Elena Test')
+    fireEvent.click(screen.getByRole('button', { name: 'No-show' }))
+    await screen.findByText('Mark this a no-show?')
+    fireEvent.click(screen.getByRole('button', { name: 'Mark no-show' }))
+
+    expect(await screen.findByText('no_show')).toBeDefined()
+  })
+})

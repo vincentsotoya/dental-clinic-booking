@@ -9,9 +9,19 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { AdminAppointment } from '@dental/shared'
-import { useAdminAppointments } from '@/api/hooks'
+import { ApiRequestError } from '@/api/errors'
+import { useAdminAppointments, useCloseAppointment } from '@/api/hooks'
 import { LoadFailed } from '@/components/LoadFailed'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   addCivilDays,
@@ -200,6 +210,11 @@ function CalendarRow({
   appointment: AdminAppointment
   timeZone: string
 }) {
+  // Gated on the clock, unlike MyAppointments' own Cancel: there is no
+  // server-computed upcoming/past boundary here to lean on, since this route
+  // is filtered by date range alone, not by "has not started yet".
+  const closable = appointment.status === 'CONFIRMED' && new Date(appointment.startsAt) <= new Date()
+
   return (
     <li className="flex flex-wrap items-start justify-between gap-4 rounded-card border border-border bg-card p-4">
       <div>
@@ -213,8 +228,103 @@ function CalendarRow({
           {appointment.service.name} — {providerName(appointment.provider)}
         </p>
       </div>
-      {/* Said in words, not colour alone — the same reason MyAppointments marks status this way. */}
-      <p className="text-sm text-muted-foreground">{appointment.status.toLowerCase()}</p>
+
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        {/* Said in words, not colour alone — the same reason MyAppointments marks status this way. */}
+        <p className="text-sm text-muted-foreground">{appointment.status.toLowerCase()}</p>
+
+        {closable && (
+          <div className="flex gap-2">
+            <CompleteButton appointment={appointment} />
+            <NoShowButton appointment={appointment} />
+          </div>
+        )}
+      </div>
     </li>
   )
+}
+
+/** The routine, low-stakes outcome of the two — no confirm dialog, unlike No-show. */
+function CompleteButton({ appointment }: { appointment: AdminAppointment }) {
+  const close = useCloseAppointment()
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="rounded-pill"
+      disabled={close.isPending}
+      onClick={() => close.mutate({ appointmentId: appointment.id, outcome: 'COMPLETED' })}
+    >
+      Complete
+    </Button>
+  )
+}
+
+function NoShowButton({ appointment }: { appointment: AdminAppointment }) {
+  const [open, setOpen] = useState(false)
+  const close = useCloseAppointment()
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        // A retry after a failed attempt should not open onto the last
+        // attempt's error.
+        if (next) close.reset()
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="rounded-pill">
+          No-show
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Mark this a no-show?</DialogTitle>
+          <DialogDescription>
+            {appointment.patient.firstName} {appointment.patient.lastName} —{' '}
+            {appointment.service.name} with {providerName(appointment.provider)}. This is closed
+            out once marked; it cannot be flipped back here.
+          </DialogDescription>
+        </DialogHeader>
+
+        {close.isError && (
+          <p role="alert" className="text-sm text-destructive">
+            {closeFailureMessage(close.error)}
+          </p>
+        )}
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)} disabled={close.isPending}>
+            Not yet
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={close.isPending}
+            onClick={() =>
+              close.mutate(
+                { appointmentId: appointment.id, outcome: 'NO_SHOW' },
+                { onSuccess: () => setOpen(false) },
+              )
+            }
+          >
+            {close.isPending ? 'Marking…' : 'Mark no-show'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * `NOT_CLOSEABLE`'s message is written for the front desk to read (see
+ * `appointment-state.ts`), so it is shown as sent. Anything else carries no
+ * message meant for this screen, and gets a fixed one instead of leaking
+ * server or network detail.
+ */
+function closeFailureMessage(error: Error): string {
+  if (error instanceof ApiRequestError && error.code === 'NOT_CLOSEABLE') return error.message
+  return 'Something went wrong at our end. Nothing was changed.'
 }

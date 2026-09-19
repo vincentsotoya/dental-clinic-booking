@@ -9,6 +9,7 @@
 import {
   adminAppointmentsResponse,
   availabilityResponse,
+  closeAppointmentResponse,
   createClosureResponse,
   createTimeOffResponse,
   deleteClosureResponse,
@@ -29,6 +30,7 @@ import {
   updateWorkingHoursResponse,
   type AdminAppointmentsErrorCode,
   type AdminAppointmentsResponse,
+  type AppointmentOutcome,
   type AvailabilityErrorCode,
   type AvailabilityResponse,
   type AppointmentWindow,
@@ -37,6 +39,8 @@ import {
   type BookAppointmentResponse,
   type CancelAppointmentErrorCode,
   type CancelAppointmentResponse,
+  type CloseAppointmentErrorCode,
+  type CloseAppointmentResponse,
   type CreateClosureErrorCode,
   type CreateClosureRequestInput,
   type CreateClosureResponse,
@@ -210,6 +214,24 @@ export const getAdminAppointments = (
     ...options,
   })
 }
+
+/**
+ * The clinic's own judgement about a visit that has happened: `COMPLETED` or
+ * `NO_SHOW`. Closing one out with the outcome it already has succeeds and
+ * changes nothing, so a retried request is safe.
+ */
+export const closeAppointment = (
+  appointmentId: string,
+  outcome: AppointmentOutcome,
+  options: Signal = {},
+): Promise<CloseAppointmentResponse> =>
+  request<CloseAppointmentResponse, CloseAppointmentErrorCode>({
+    path: `/admin/appointments/${appointmentId}/close`,
+    schema: closeAppointmentResponse,
+    method: 'PATCH',
+    body: { outcome },
+    ...options,
+  })
 
 /** A provider's recurring weekly window — the admin's own edit of it. */
 export const getWorkingHours = (

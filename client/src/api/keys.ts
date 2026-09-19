@@ -26,6 +26,8 @@ export const queryKeys = {
   appointments: () => ['appointments'] as const,
   myAppointments: (when?: AppointmentWindow) => ['appointments', 'me', when ?? 'upcoming'] as const,
 
+  /** The prefix. Passing it to `invalidateQueries` matches every range a calendar view has open. */
+  adminAppointmentsAll: () => ['admin', 'appointments'] as const,
   adminAppointments: (params: AdminAppointmentsParams) =>
     ['admin', 'appointments', params] as const,
 

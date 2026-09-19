@@ -9,9 +9,10 @@ questions. **(S)** marks a task driven by a skill session.
 
 ## Current Phase
 
-Phase 7 — admin. Phase 6 is complete: the patient side of the app — my appointments, cancel,
-reschedule, profile and insurance, plus the dedicated booking confirmation — all have screens now,
-each exercised against real Postgres and, where it's a UI, a real signed-in browser session.
+Phase 8 — clinical records. Phase 7 is complete: the clinic's own side of the app — the day/week
+calendar, working hours, time off, clinic closures, and now confirm/complete/no-show — all have
+screens now, each exercised against real Postgres and, where it's a UI, a real signed-in browser
+session.
 
 ## Completed
 
@@ -279,7 +280,7 @@ Phase 6, closed:
       Cleaning from Naomi Clarke 8:00 AM to 1:00 PM the same day, watched the list update, moved it
       back. Surfaced a real gap doing it — see Active Blockers
 
-Phase 7, in progress:
+Phase 7, closed:
 
 - [x] **(C)** Admin access foundation — the first task, chosen over the calendar and
       confirm/complete/no-show so those build on something proven first. Both guards already
@@ -402,14 +403,45 @@ Phase 7, in progress:
       and saw "This overlaps 2 confirmed appointments" — the same conflict, now clinic-wide rather
       than scoped to the one provider named in the request
 
+- [x] **(C)** Confirm/complete/no-show — Phase 7's last piece. One route,
+      `PATCH /api/admin/appointments/:id/close`, for both outcomes rather than two:
+      `appointments.ts` already frames `COMPLETED` and `NO_SHOW` together as "the clinic's
+      judgements about what happened", and the two-value `outcome` field excludes
+      `CONFIRMED`/`CANCELLED` by type rather than a runtime check. `refusalToClose` in
+      `appointment-state.ts` mirrors `refusalToChange`'s own clock check in the opposite
+      direction — a patient is refused once a visit has started, the front desk is refused until
+      it has — and is terminal once closed either way. No schema change: both
+      `AppointmentEventType` values were already forward-built in Phase 1. Buttons sit on
+      `AdminCalendar.tsx`'s row, gated on a real client-side clock check for the first time in
+      this phase — the admin calendar has no server-computed upcoming/past boundary the way
+      `MyAppointments` does. No-show gets a confirm dialog, matching Cancel; Complete doesn't —
+      the routine, low-stakes outcome of the two
+- [x] 🎯 19 server route tests plus the shared contract; falsified the one predicate difference
+      from cancel/reschedule directly: an appointment that hasn't started yet is refused, not one
+      that already has
+- [x] 🎯 13 client tests over the new buttons: withheld until the appointment starts, withheld
+      once already closed, Complete needs no confirmation, No-show does and does nothing until
+      confirmed
+- [x] 🎯 `npm run db:complete-no-show`, 21 checks against real Postgres: closing a visit frees its
+      slot exactly as cancelling does (`EXCLUDE` filters `WHERE status = 'CONFIRMED'`, so leaving
+      that status to either outcome releases it), flipping a settled outcome is refused, and a
+      genuine row-lock race between two front-desk requests resolves 409 to the loser. Realised
+      mid-script that "a patient cancels while the front desk closes it" cannot happen —
+      `refusalToChange` and `refusalToClose` require opposite clock states, so no appointment is
+      ever eligible for both — and rebuilt the race as two front-desk requests instead
+- [x] 🎯 Exercised live against the seeded dev server, signed in as Dana Whitfield: planted a past
+      appointment, watched Complete close it with no dialog and a cold reload confirm it
+      persisted, planted a second, watched No-show's confirm dialog do nothing on "Not yet" and
+      close it on confirmation
+
 ## Current Task
 
-- [ ] None. Clinic closures is closed and exercised live.
+- [ ] None. Confirm/complete/no-show is closed and exercised live — Phase 7 is done.
 
 ## Next
 
-- [ ] **Phase 7 — Admin**, the last remaining piece: confirm/complete/no-show (`docs/roadmap.md`).
-      Not broken into tasks yet
+- [ ] **Phase 8 — Clinical records**: treatment records, patient history, tooth chart, audit
+      logging of record access (`docs/roadmap.md`). Not broken into tasks yet
 
 ## Active Blockers
 
@@ -442,6 +474,16 @@ Phase 7, in progress:
 
 ## Recent Decisions
 
+- **Complete and no-show are one route with an `outcome` field, not two.** `appointments.ts`
+  already groups `COMPLETED`/`NO_SHOW` as "the clinic's judgements about what happened", and a
+  two-value enum excludes `CONFIRMED`/`CANCELLED` by type — the same job cancel/reschedule's split
+  into two routes does for a different reason (their policies can diverge; complete/no-show is one
+  judgement with two possible values)
+- **The race that would have mirrored `check-cancel.ts`'s — a patient cancelling while the front
+  desk closes the same row — turned out to be impossible.** `refusalToChange` refuses a
+  cancellation once an appointment has started; `refusalToClose` refuses a close-out until it has.
+  The two checks are disjoint by design, so no appointment is ever eligible for both at once. The
+  db proof's race is two front-desk requests instead, found by trying the wrong one first
 - **Closures reused time off's shape rather than a shared abstraction.** Both are "a dated range,
   civil dates only, conflict-checked against `CONFIRMED` appointments" — but a closure has no
   provider, so a shared base would need a nullable `providerId` deciding what a row means, the exact

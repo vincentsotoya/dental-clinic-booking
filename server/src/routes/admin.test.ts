@@ -1,8 +1,13 @@
-import { adminAppointmentsError, adminAppointmentsResponse } from '@dental/shared'
+import {
+  adminAppointmentsError,
+  adminAppointmentsResponse,
+  closeAppointmentError,
+  closeAppointmentResponse,
+} from '@dental/shared'
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../app'
-import { ADMIN_USER, PATIENT_USER, stubAuth, type StubUser } from '../test-support/stubs'
+import { ADMIN_USER, PATIENT_USER, stubAuth, stubTransaction, type StubUser } from '../test-support/stubs'
 
 // No Postgres. What a stub cannot prove — the range really is one indexed
 // read, and Postgres really groups a row under the civil day it starts on —
@@ -118,6 +123,160 @@ describe('GET /api/admin/appointments', () => {
   it('rejects a malformed date the same way every other route does', async () => {
     const { app } = appFor(ADMIN_USER)
     const res = await request(app).get('/api/admin/appointments?from=not-a-date')
+
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('INVALID_REQUEST')
+  })
+})
+
+// No Postgres. What a stub cannot prove — the same race `cancellation.ts`'s
+// own comment describes — is `npm run db:complete-no-show`'s job.
+
+const NOW = new Date('2026-09-21T13:00:00.000Z')
+
+/** Hers, confirmed, and started 15 minutes ago unless a test says otherwise. */
+function closableRow(overrides: Partial<typeof ROW & { startsAt: Date }> = {}) {
+  return { ...ROW, startsAt: new Date(NOW.getTime() - 15 * 60_000), ...overrides }
+}
+
+function closeAppFor(user: StubUser | null, rows: (typeof ROW)[] = [closableRow()]) {
+  const updates: unknown[] = []
+  const events: { data: Record<string, unknown> }[] = []
+
+  const db = {
+    appointment: {
+      findMany: async () => rows,
+      findUnique: async ({ where }: { where: { id: string } }) => {
+        const hit = rows.find((row) => row.id === where.id)
+        return hit ? { ...hit } : null
+      },
+      updateMany: async ({ where, data }: { where: { id: string; status: string }; data: { status: string } }) => {
+        updates.push({ where, data })
+        const hit = rows.filter((row) => row.id === where.id && row.status === where.status)
+        hit.forEach((row) => Object.assign(row, data))
+        return { count: hit.length }
+      },
+    },
+    appointmentEvent: {
+      create: async (args: { data: Record<string, unknown> }) => {
+        events.push(args)
+        return { id: 'event_1', ...args.data }
+      },
+    },
+    service: { findUnique: async () => null },
+    patient: { findUnique: async () => null },
+  }
+
+  const app = createApp({
+    db: { ...db, ...stubTransaction(db) },
+    auth: stubAuth(user),
+    databaseIsReachable: async () => true,
+    timeZone: 'America/New_York',
+    now: () => NOW,
+  } as unknown as Parameters<typeof createApp>[0])
+
+  return { app, rows, updates, events }
+}
+
+function close(app: ReturnType<typeof closeAppFor>['app'], id: string, outcome = 'COMPLETED') {
+  return request(app).patch(`/api/admin/appointments/${id}/close`).send({ outcome })
+}
+
+describe('PATCH /api/admin/appointments/:id/close', () => {
+  it('closes the row COMPLETED and answers 200 with the shared contract', async () => {
+    const { app, rows } = closeAppFor(ADMIN_USER)
+    const res = await close(app, ROW.id, 'COMPLETED')
+
+    expect(res.status).toBe(200)
+    expect(() => closeAppointmentResponse.parse(res.body)).not.toThrow()
+    expect(res.body.appointment.status).toBe('COMPLETED')
+    expect(rows[0]?.status).toBe('COMPLETED')
+  })
+
+  it('closes the row NO_SHOW the same way', async () => {
+    const { app, rows } = closeAppFor(ADMIN_USER)
+    const res = await close(app, ROW.id, 'NO_SHOW')
+
+    expect(res.status).toBe(200)
+    expect(res.body.appointment.status).toBe('NO_SHOW')
+    expect(rows[0]?.status).toBe('NO_SHOW')
+  })
+
+  it('is idempotent on a repeat of the same outcome, and does not write a second time', async () => {
+    const { app, updates } = closeAppFor(ADMIN_USER)
+    const first = await close(app, ROW.id, 'COMPLETED')
+    const second = await close(app, ROW.id, 'COMPLETED')
+
+    expect([first.status, second.status]).toEqual([200, 200])
+    expect(updates).toHaveLength(1)
+  })
+
+  it('409s NOT_CLOSEABLE flipping a settled outcome to the other one', async () => {
+    const { app } = closeAppFor(ADMIN_USER, [closableRow({ status: 'COMPLETED' })])
+    const res = await close(app, ROW.id, 'NO_SHOW')
+
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('NOT_CLOSEABLE')
+    expect(res.body.error.message).toContain('already marked complete')
+    expect(() => closeAppointmentError.parse(res.body)).not.toThrow()
+  })
+
+  it('409s a cancelled appointment', async () => {
+    const { app } = closeAppFor(ADMIN_USER, [closableRow({ status: 'CANCELLED' })])
+    const res = await close(app, ROW.id)
+
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('NOT_CLOSEABLE')
+    expect(res.body.error.message).toContain('cancelled')
+  })
+
+  it('409s an appointment that has not started yet', async () => {
+    const { app } = closeAppFor(ADMIN_USER, [closableRow({ startsAt: new Date(NOW.getTime() + 60_000) })])
+    const res = await close(app, ROW.id)
+
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('NOT_CLOSEABLE')
+    expect(res.body.error.message).toContain("hasn't happened yet")
+  })
+
+  it('records the outcome as a status change, naming the admin', async () => {
+    const { app, events } = closeAppFor(ADMIN_USER)
+    await close(app, ROW.id, 'NO_SHOW')
+
+    expect(events[0]?.data).toMatchObject({
+      appointmentId: ROW.id,
+      type: 'NO_SHOW',
+      fromStatus: 'CONFIRMED',
+      toStatus: 'NO_SHOW',
+      actorUserId: ADMIN_USER.id,
+      actorRole: 'ADMIN',
+    })
+  })
+
+  it('404s a missing appointment', async () => {
+    const { app } = closeAppFor(ADMIN_USER, [])
+    const res = await close(app, ROW.id)
+
+    expect(res.status).toBe(404)
+  })
+
+  it('refuses a signed-in patient — this is not their route', async () => {
+    const { app } = closeAppFor(PATIENT_USER)
+    const res = await close(app, ROW.id)
+
+    expect(res.status).toBe(403)
+  })
+
+  it('refuses a stranger with 401', async () => {
+    const { app } = closeAppFor(null)
+    const res = await close(app, ROW.id)
+
+    expect(res.status).toBe(401)
+  })
+
+  it('400s an outcome outside COMPLETED/NO_SHOW', async () => {
+    const { app } = closeAppFor(ADMIN_USER)
+    const res = await close(app, ROW.id, 'CONFIRMED')
 
     expect(res.status).toBe(400)
     expect(res.body.error.code).toBe('INVALID_REQUEST')

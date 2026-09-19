@@ -30,3 +30,22 @@ export function refusalToChange(row: ChangeableAppointment, now: Date): string |
 
   return null
 }
+
+/**
+ * Why the clinic cannot close this appointment out yet, or null if it can.
+ *
+ * The mirror image of `refusalToChange`'s clock check: a patient is refused
+ * once a visit has started, the front desk is refused until it has. Terminal
+ * once closed either way — flipping a settled outcome would erase whichever
+ * judgement it overwrote, the same reasoning `refusalToChange` already gives
+ * for `NO_SHOW`. The caller checks for a same-outcome retry before this runs,
+ * so `COMPLETED`/`NO_SHOW` reaching here always means the *other* outcome.
+ */
+export function refusalToClose(row: ChangeableAppointment, now: Date): string | null {
+  if (row.status === 'CANCELLED') return 'That appointment was cancelled.'
+  if (row.status === 'COMPLETED') return 'That appointment is already marked complete.'
+  if (row.status === 'NO_SHOW') return 'That appointment is already marked as a no-show.'
+  if (row.startsAt > now) return "That appointment hasn't happened yet."
+
+  return null
+}

@@ -9,6 +9,7 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query'
 import type {
   AdminAppointmentsResponse,
+  AppointmentOutcome,
   AppointmentWindow,
   AvailabilityResponse,
   CreateClosureRequestInput,
@@ -30,6 +31,7 @@ import type {
 import {
   bookAppointment,
   cancelAppointment,
+  closeAppointment,
   createClosure,
   createTimeOff,
   deleteClosure,
@@ -329,5 +331,26 @@ export const useRescheduleAppointment = () => {
       rescheduleAppointment(args.appointmentId, args.body),
     onSuccess: invalidate,
     onError: invalidate,
+  })
+}
+
+/**
+ * The front desk's own close-out: `COMPLETED` or `NO_SHOW`.
+ *
+ * Invalidates availability too, not only the admin calendar: both `EXCLUDE`
+ * constraints filter `WHERE status = 'CONFIRMED'`, so leaving that status —
+ * to either outcome — frees the slot exactly as cancelling does.
+ */
+export const useCloseAppointment = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (args: { appointmentId: string; outcome: AppointmentOutcome }) =>
+      closeAppointment(args.appointmentId, args.outcome),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.availability() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.adminAppointmentsAll() }),
+      ]),
   })
 }

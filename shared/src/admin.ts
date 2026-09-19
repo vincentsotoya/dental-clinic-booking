@@ -83,3 +83,43 @@ export const adminAppointmentsError = errorBody(adminAppointmentsErrorCode)
 
 export type AdminAppointmentsErrorCode = z.infer<typeof adminAppointmentsErrorCode>
 export type AdminAppointmentsError = z.infer<typeof adminAppointmentsError>
+
+// ---------------------------------------------------------------------------
+// PATCH /api/admin/appointments/:id/close
+//
+// One route for both outcomes rather than two: `appointments.ts` already
+// frames `COMPLETED` and `NO_SHOW` together as "the clinic's judgements about
+// what happened", and a two-value `outcome` excludes `CONFIRMED`/`CANCELLED`
+// by type, the same job a runtime check would otherwise do twice.
+
+export const appointmentOutcome = z.enum(['COMPLETED', 'NO_SHOW'])
+
+export type AppointmentOutcome = z.infer<typeof appointmentOutcome>
+
+export const closeAppointmentRequest = z.object({ outcome: appointmentOutcome })
+
+export type CloseAppointmentRequest = z.infer<typeof closeAppointmentRequest>
+
+/** The same appointment, closed out — same `id`, so the calendar row updates in place. */
+export const closeAppointmentResponse = z.object({ appointment: adminAppointment })
+
+export type CloseAppointmentResponse = z.infer<typeof closeAppointmentResponse>
+
+/**
+ * `NOT_CLOSEABLE` is one code for every refusal about the appointment's own
+ * state — cancelled, too early, already closed the other way — following
+ * `NOT_CANCELLABLE`'s own precedent: which one it was belongs in the message.
+ */
+export const closeAppointmentErrorCode = apiErrorCode.extract([
+  'INVALID_REQUEST',
+  'INTERNAL',
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'NOT_CLOSEABLE',
+])
+
+export const closeAppointmentError = errorBody(closeAppointmentErrorCode)
+
+export type CloseAppointmentErrorCode = z.infer<typeof closeAppointmentErrorCode>
+export type CloseAppointmentError = z.infer<typeof closeAppointmentError>
