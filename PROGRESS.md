@@ -436,12 +436,30 @@ Phase 7, closed:
 
 ## Current Task
 
-- [ ] None. Confirm/complete/no-show is closed and exercised live — Phase 7 is done.
+- [ ] **Phase 8, task 3 — patient directory.** Admin has no way to find a patient today; history
+      and the chart need somewhere to be reached from.
 
 ## Next
 
-- [ ] **Phase 8 — Clinical records**: treatment records, patient history, tooth chart, audit
-      logging of record access (`docs/roadmap.md`). Not broken into tasks yet
+- [ ] **Phase 8 — Clinical records**, broken into six tasks:
+  1. [x] Domain language — `CONTEXT.md` gained a Clinical records section: Treatment Record,
+     Tooth, Chart Entry, Tooth Chart, Record Access
+  2. [x] Schema — `TreatmentRecord` and `ToothChartEntry`, migration
+     `20260925132420_add_treatment_records`, ADR-0011 for universal (1–32) numbering
+  3. [ ] Patient directory
+  4. [ ] Write path — admin records a treatment from closing out a completed appointment
+  5. [ ] Read path — the patient history screen: past appointments, treatment records, current
+     chart, on the directory's per-patient page
+  6. [ ] Audit logging of record access — last on purpose, mirroring Phase 7's confirm/complete/
+     no-show closing the phase: nothing to audit until the read path in (5) exists
+- [x] 🎯 Against real Postgres, inside a transaction rolled back after: a second
+      `TreatmentRecord` on one appointment rejected (unique), `tooth = 0` and `tooth = 33` both
+      rejected (`CHECK`), a duplicate `(treatmentRecordId, tooth)` rejected (unique), deleting a
+      patient with a chart entry rejected (FK restrict), and deleting the admin login that wrote
+      a record left the record with `actorUserId: NULL`, `actorRole: ADMIN` still intact
+- [x] 🎯 `npm run typecheck` and the server's 263 tests pass with the new models. Verified by
+      stashing the change and re-running: one typecheck failure in `check-working-hours.ts` is
+      pre-existing, unrelated to Phase 8 — see Active Blockers
 
 ## Active Blockers
 
@@ -464,6 +482,11 @@ Phase 7, closed:
 - **A month of availability is 352KB uncompressed** for a popular service — 1,482 slots, of which
   the calendar needs only the 20 distinct dates. Tolerable gzipped, and the fix is a days-only
   projection on the server rather than anything on the client
+- **`npm run typecheck` fails from the repo root, unrelated to Phase 8.**
+  `server/scripts/check-working-hours.ts:208` passes a plain `string` where the generated
+  `Weekday` enum is expected. Pre-existing — confirmed by stashing the Phase 8 schema change and
+  re-running against `main`, same failure. Found only because CLAUDE.md's verification step runs
+  the root command; nobody had run it since Working Hours closed
 - **The deployed site needs an API that is not deployed.** Seen live, not predicted: the public
   pages and `/book` render their copy, their skeletons and then "We couldn't load our
   treatments". Phase 11 hosting the server clears it. Until then the site is deliberately unlisted
@@ -474,6 +497,28 @@ Phase 7, closed:
 
 ## Recent Decisions
 
+- **The actor-FK hazard now recurs a second time.** `treatment_records.actor_user_id` is
+  hand-written, `ON DELETE SET NULL`, same shape and reason as
+  `appointment_events.actor_user_id` (ADR-0006) — check for the two spurious `DROP CONSTRAINT`
+  lines Prisma emits on every future migration, now three lines, not one
+- **`tooth_chart_entries.patient_id` is denormalized, not reached only through the treatment
+  record.** The chart is read "this patient, every tooth" far more often than through one record;
+  the same trade `blockedUntil` makes on `Appointment`
+- **"A treatment record only comes from a `COMPLETED` appointment" is enforced in the write path,
+  not the database.** `appointmentId` being unique stops two records on one appointment, but nothing
+  reads `appointments.status` — the same choice `TIME_OFF_CONFLICT` made for a cross-table rule a
+  plain `CHECK` cannot express. Task 4 owns it
+- **"Tooth Chart" is always spelled out, never bare "chart."** `getChartId` already uses "chart"
+  informally for a Patient's whole record; a formal `Chart` term for Phase 8 would collide with
+  code that predates this phase. Found while writing `CONTEXT.md`, not planned for
+- **Phase 8 tooth chart uses universal numbering (1–32), not FDI.** Chosen for a US-based
+  audience over the international standard; the trade-off gets its own ADR when the schema task
+  lands
+- **A treatment record is tied to a completed appointment, not free-standing.** Mirrors Phase 7's
+  complete/no-show shape and gives the write path a natural trigger, at the cost of no way to
+  backfill history with no appointment behind it
+- **The patient directory is Phase 8's own task, not a separate prerequisite.** It exists only
+  because clinical records need somewhere to be reached from — no other phase needs it yet
 - **Complete and no-show are one route with an `outcome` field, not two.** `appointments.ts`
   already groups `COMPLETED`/`NO_SHOW` as "the clinic's judgements about what happened", and a
   two-value enum excludes `CONFIRMED`/`CANCELLED` by type — the same job cancel/reschedule's split

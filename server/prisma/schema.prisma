@@ -85,6 +85,21 @@ enum Weekday {
   SUNDAY
 }
 
+/// Not exhaustive of real dental charting — no ADA procedure codes. Enough
+/// conditions to make the Tooth Chart demonstrably useful without modelling a
+/// coding system this portfolio doesn't need.
+
+enum ToothCondition {
+  HEALTHY
+  WATCH
+  DECAYED
+  FILLED
+  CROWNED
+  ROOT_CANAL
+  MISSING
+  EXTRACTION_NEEDED
+}
+
 // ---------------------------------------------------------------------------
 // People
 // ---------------------------------------------------------------------------
@@ -153,6 +168,7 @@ model Patient {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   appointments Appointment[]
+  chartEntries ToothChartEntry[]
 
   @@index([email])
   @@map("patients")
@@ -313,7 +329,8 @@ model Appointment {
   service   Service   @relation(fields: [serviceId], references: [id], onDelete: Restrict)
   operatory Operatory @relation(fields: [operatoryId], references: [id], onDelete: Restrict)
 
-  events AppointmentEvent[]
+  events          AppointmentEvent[]
+  treatmentRecord TreatmentRecord?
 
   @@index([patientId, startsAt])
   @@index([providerId, startsAt])
@@ -357,6 +374,71 @@ model AppointmentEvent {
 
   @@index([appointmentId, createdAt])
   @@map("appointment_events")
+}
+
+// ---------------------------------------------------------------------------
+// Clinical records — CONTEXT.md's "Clinical records" section
+// ---------------------------------------------------------------------------
+
+/// What a Provider did during one completed Appointment — CONTEXT.md's
+/// Treatment Record. One row per Appointment (appointmentId is unique): the
+/// front desk closes a visit out once, not many times. "Only from a COMPLETED
+/// appointment" is enforced in the write path (Phase 8 task 4), not here — the
+/// same choice TIME_OFF_CONFLICT made: a cross-table rule a plain CHECK cannot
+/// express.
+
+model TreatmentRecord {
+  id            String @id @default(uuid()) @db.Uuid
+  appointmentId String @unique @map("appointment_id") @db.Uuid
+
+  /// What the Provider did and found. Required — a record with nothing to say
+  /// isn't a record.
+  notes String
+
+  /// TEXT, and a plain column rather than a relation, same reason as
+  /// AppointmentEvent.actorUserId: user ids are minted by Better Auth and the
+  /// FK is hand-written in the migration (ADR-0006).
+  actorUserId String?   @map("actor_user_id")
+  actorRole   ActorRole @map("actor_role")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  appointment  Appointment       @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  chartEntries ToothChartEntry[]
+
+  @@map("treatment_records")
+}
+
+/// One recorded condition of one Tooth, at one point in time — CONTEXT.md's
+/// Chart Entry. Append-only, like AppointmentEvent: the Tooth Chart itself is
+/// never a stored row, only ever the latest entry per tooth, read by querying
+/// this table — see docs/database-design.md.
+
+model ToothChartEntry {
+  id                String @id @default(uuid()) @db.Uuid
+  treatmentRecordId String @map("treatment_record_id") @db.Uuid
+
+  /// Denormalized from treatmentRecord.appointment.patientId. The chart is
+  /// read as "this patient, every tooth" far more often than through one
+  /// record — the same trade blockedUntil makes on Appointment: a snapshot
+  /// column earns its place by being what the real query needs.
+  patientId String @map("patient_id") @db.Uuid
+
+  /// Universal numbering, 1–32 (CONTEXT.md). Checked in the migration —
+  /// Prisma has no CHECK syntax (docs/database-design.md).
+  tooth     Int
+  condition ToothCondition
+  notes     String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  treatmentRecord TreatmentRecord @relation(fields: [treatmentRecordId], references: [id], onDelete: Cascade)
+  patient         Patient         @relation(fields: [patientId], references: [id], onDelete: Restrict)
+
+  @@unique([treatmentRecordId, tooth])
+  @@index([patientId, tooth, createdAt])
+  @@map("tooth_chart_entries")
 }
 
 model User {

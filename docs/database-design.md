@@ -127,6 +127,42 @@ without it. `ON DELETE SET NULL` from the login: deleting an account forgets *wh
 A CHECK requires at least one of `from_status`, `to_status` or `to_starts_at`, so a row cannot
 say merely that something occurred.
 
+## Clinical records
+
+`treatment_records` and `tooth_chart_entries` — CONTEXT.md's Treatment Record and Chart Entry.
+Same append-only shape as `appointment_events`: a `ToothChartEntry` is never edited, only
+superseded by a later one for the same tooth. There is no `tooth_charts` table — the Tooth Chart
+is a read (the latest entry per tooth per patient), not a row.
+
+| Column | Purpose |
+|---|---|
+| `treatment_records.appointment_id` | `UNIQUE`. One record per appointment — the front desk closes a visit out once. |
+| `tooth_chart_entries.patient_id` | Denormalized from `treatment_record.appointment.patient_id`. The chart is read "this patient, every tooth" far more often than reached through one record — the same trade `blocked_until` makes on `appointments`. |
+| `tooth_chart_entries.tooth` | Universal numbering, 1–32, `CHECK`-constrained. |
+
+"A treatment record only comes from a `COMPLETED` appointment" is **not** a database constraint —
+`appointment_id` being unique stops two records on one appointment, but nothing here reads
+`appointments.status`. Same reasoning as `TIME_OFF_CONFLICT`: a cross-table rule a plain `CHECK`
+cannot express, checked in the write path instead (Phase 8 task 4).
+
+`treatment_records.actor_user_id` is hand-written, `ON DELETE SET NULL`, for the same reason as
+`appointment_events.actor_user_id` — see the hazard below, which now recurs here too.
+
+### Verified
+
+Against real Postgres, inside a transaction rolled back at the end:
+
+- A second `TreatmentRecord` on an appointment that already has one — rejected, unique violation
+  on `appointment_id`.
+- `tooth = 0` and `tooth = 33` — both rejected, `23514` on `tooth_chart_entries_tooth_in_range`.
+- A second `ChartEntry` for a tooth already charted on the same record — rejected, unique
+  violation on `(treatment_record_id, tooth)`.
+- Deleting a patient with a chart entry — rejected (via `appointments_patient_id_fkey`, which
+  already blocks it; `tooth_chart_entries_patient_id_fkey` is the same guarantee for a patient
+  whose only clinical history is a chart entry, once one can exist with no surviving appointment).
+- Deleting the admin login that wrote a record — the record survives, `actor_user_id` reads
+  `NULL`, `actor_role` still reads `ADMIN`.
+
 ## A hazard in every future migration
 
 Two foreign keys are hand-written, because both point at Better Auth's `user` table and the other
