@@ -86,6 +86,36 @@ Provider and Operatory — never "someone, somewhere." Becomes an Appointment on
 Slot is computed, never stored.
 _Avoid_: Opening, availability, free time
 
+### Clinical records
+
+**Treatment Record**:
+What a Provider did during one completed Appointment, recorded by the Admin who closes the visit
+out — the system has no Provider login to write it directly. Carries free-text notes and any Chart
+Entries it produced.
+_Avoid_: Chart note, visit note, procedure note
+
+**Tooth**:
+One of a Patient's 32 permanent teeth, identified by its universal number (1–32).
+_Avoid_: FDI number, quadrant — this practice charts adults only, so there is no primary/deciduous
+numbering to disambiguate against
+
+**Chart Entry**:
+One recorded condition of one Tooth at one point in time — decayed, filled, missing, crowned, and
+so on — tied to the Treatment Record that produced it. Append-only: a Tooth's condition changing
+is a new entry, never an edit to an old one, the same split as Appointment/AppointmentEvent.
+_Avoid_: Update, edit, revision
+
+**Tooth Chart**:
+A Patient's current condition, tooth by tooth — the latest Chart Entry for each Tooth, derived and
+never its own row.
+_Avoid_: Bare "chart" — `getChartId` already uses that word informally for a Patient's whole
+record; always say Tooth Chart in full so the two don't collide
+
+**Record Access**:
+One instance of an Admin viewing a Patient's Treatment Records or Tooth Chart. Logged on every
+view, not only on a write — reading is the sensitive act.
+_Avoid_: Audit trail, audit log — both name the mechanism; this names the event it logs
+
 ### Money
 
 **Invoice**:
