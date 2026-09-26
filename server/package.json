@@ -24,7 +24,8 @@
     "db:working-hours": "tsx scripts/check-working-hours.ts",
     "db:time-off": "tsx scripts/check-time-off.ts",
     "db:closures": "tsx scripts/check-closures.ts",
-    "db:complete-no-show": "tsx scripts/check-complete-no-show.ts"
+    "db:complete-no-show": "tsx scripts/check-complete-no-show.ts",
+    "db:patients": "tsx scripts/check-patients.ts"
   },
   "dependencies": {
     "@dental/shared": "*",

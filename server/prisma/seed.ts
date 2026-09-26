@@ -485,6 +485,36 @@ async function main() {
         dateOfBirth: new Date('1975-11-02'),
         recallIntervalMonths: 12,
       },
+      // Charts the clinic keeps for people who never registered — no login,
+      // so the directory has something to search that is not the two accounts.
+      // Marshall sits beside Marsh, and O'Brien carries an apostrophe, on purpose.
+      {
+        firstName: 'Marcus',
+        lastName: 'Okafor',
+        email: 'marcus.okafor@example.com',
+        phone: '+1-555-0117',
+        dateOfBirth: new Date('1992-08-09'),
+      },
+      {
+        firstName: 'Elena',
+        lastName: 'Marshall',
+        email: 'elena.marshall@example.com',
+        phone: '+1-555-0163',
+        dateOfBirth: new Date('1964-01-23'),
+      },
+      {
+        firstName: 'Sofia',
+        lastName: 'Lindqvist',
+        email: 'sofia.lindqvist@example.com',
+        dateOfBirth: new Date('2001-06-30'),
+      },
+      {
+        firstName: 'Hannah',
+        lastName: "O'Brien",
+        email: 'hannah.obrien@example.com',
+        phone: '+1-555-0175',
+        dateOfBirth: new Date('1980-12-05'),
+      },
     ],
   })
 

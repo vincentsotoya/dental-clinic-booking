@@ -46,6 +46,9 @@ export default function AdminHome() {
         <Button asChild variant="outline" className="rounded-pill">
           <Link to="/admin/closures">Closures</Link>
         </Button>
+        <Button asChild variant="outline" className="rounded-pill">
+          <Link to="/admin/patients">Patients</Link>
+        </Button>
       </div>
     </div>
   )

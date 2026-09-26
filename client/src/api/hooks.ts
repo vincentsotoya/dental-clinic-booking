@@ -6,9 +6,16 @@
 // CONFIRMED), so a slot list rendered a moment earlier is now missing a time
 // that is genuinely bookable.
 
-import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseQueryOptions,
+} from '@tanstack/react-query'
 import type {
   AdminAppointmentsResponse,
+  AdminPatientsResponse,
   AppointmentOutcome,
   AppointmentWindow,
   AvailabilityResponse,
@@ -37,6 +44,7 @@ import {
   deleteClosure,
   deleteTimeOff,
   getAdminAppointments,
+  getAdminPatients,
   getAvailability,
   getClosures,
   getHealth,
@@ -354,3 +362,15 @@ export const useCloseAppointment = () => {
       ]),
   })
 }
+
+/**
+ * The patient directory for one search. The previous answer stays on screen
+ * while the next loads, so typing narrows a list instead of blanking it.
+ */
+export const useAdminPatients = (q: string, options: QueryTuning<AdminPatientsResponse> = {}) =>
+  useQuery({
+    queryKey: queryKeys.adminPatients(q),
+    queryFn: ({ signal }) => getAdminPatients({ q }, { signal }),
+    placeholderData: keepPreviousData,
+    ...options,
+  })

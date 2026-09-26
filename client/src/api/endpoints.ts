@@ -8,6 +8,7 @@
 
 import {
   adminAppointmentsResponse,
+  adminPatientsResponse,
   availabilityResponse,
   closeAppointmentResponse,
   createClosureResponse,
@@ -30,6 +31,8 @@ import {
   updateWorkingHoursResponse,
   type AdminAppointmentsErrorCode,
   type AdminAppointmentsResponse,
+  type AdminPatientsErrorCode,
+  type AdminPatientsResponse,
   type AppointmentOutcome,
   type AvailabilityErrorCode,
   type AvailabilityResponse,
@@ -332,3 +335,19 @@ export const rescheduleAppointment = (
     body,
     ...options,
   })
+
+/**
+ * The front desk's patient directory. A blank `q` is the first page,
+ * alphabetically; a longer list than fits is narrowed by searching, not paged.
+ */
+export const getAdminPatients = (
+  params: { q: string },
+  options: Signal = {},
+): Promise<AdminPatientsResponse> => {
+  const query = new URLSearchParams(params.q === '' ? {} : { q: params.q })
+  return request<AdminPatientsResponse, AdminPatientsErrorCode>({
+    path: `/admin/patients?${query}`,
+    schema: adminPatientsResponse,
+    ...options,
+  })
+}

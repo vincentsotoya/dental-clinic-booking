@@ -436,8 +436,9 @@ Phase 7, closed:
 
 ## Current Task
 
-- [ ] **Phase 8, task 3 — patient directory.** Admin has no way to find a patient today; history
-      and the chart need somewhere to be reached from.
+- [ ] **Phase 8, task 4 — write path.** The admin records a treatment from closing out a
+      completed appointment. Must enforce "a record only comes from a `COMPLETED` appointment" in
+      the service, since no `CHECK` can (see Recent Decisions).
 
 ## Next
 
@@ -446,7 +447,10 @@ Phase 7, closed:
      Tooth, Chart Entry, Tooth Chart, Record Access
   2. [x] Schema — `TreatmentRecord` and `ToothChartEntry`, migration
      `20260925132420_add_treatment_records`, ADR-0011 for universal (1–32) numbering
-  3. [ ] Patient directory
+  3. [x] Patient directory — `GET /api/admin/patients?q=` and `/admin/patients`: server-side
+     search, name and email only, capped at 25 with a `truncated` flag. Rows are not links yet;
+     task 5's per-patient page is what they open. The seed gained four walk-in charts so there is
+     something to search
   4. [ ] Write path — admin records a treatment from closing out a completed appointment
   5. [ ] Read path — the patient history screen: past appointments, treatment records, current
      chart, on the directory's per-patient page
@@ -457,9 +461,16 @@ Phase 7, closed:
       rejected (`CHECK`), a duplicate `(treatmentRecordId, tooth)` rejected (unique), deleting a
       patient with a chart entry rejected (FK restrict), and deleting the admin login that wrote
       a record left the record with `actorUserId: NULL`, `actorRole: ADMIN` still intact
-- [x] 🎯 `npm run typecheck` and the server's 263 tests pass with the new models. Verified by
-      stashing the change and re-running: one typecheck failure in `check-working-hours.ts` is
-      pre-existing, unrelated to Phase 8 — see Active Blockers
+- [x] 🎯 `npm run db:patients`, 22 checks against real Postgres: a `%` or `_` in the search
+      matched **every** patient until escaped — Prisma's `contains` becomes an unescaped LIKE — and
+      returns nothing now. Case-insensitive, several words narrow in either order, an apostrophe is
+      a character, 25 rows plus `truncated` against 28 real ones. Falsified in the tests four ways:
+      the page cap, the escape, the debounce, and keeping the last list while the next loads
+- [x] 🎯 Exercised live, signed in as Dana Whitfield: six charts with "No account" on the four
+      walk-ins, "ELENA marsh" found both Elenas, `%` answered "No patients match", not everyone
+- [x] `npm run typecheck` fixed from the repo root — `check-working-hours.ts` typed its own row
+      as `weekday: string`; it now derives the type from the query that produces it. 138 + 274 + 259
+      tests pass
 
 ## Active Blockers
 
@@ -482,11 +493,6 @@ Phase 7, closed:
 - **A month of availability is 352KB uncompressed** for a popular service — 1,482 slots, of which
   the calendar needs only the 20 distinct dates. Tolerable gzipped, and the fix is a days-only
   projection on the server rather than anything on the client
-- **`npm run typecheck` fails from the repo root, unrelated to Phase 8.**
-  `server/scripts/check-working-hours.ts:208` passes a plain `string` where the generated
-  `Weekday` enum is expected. Pre-existing — confirmed by stashing the Phase 8 schema change and
-  re-running against `main`, same failure. Found only because CLAUDE.md's verification step runs
-  the root command; nobody had run it since Working Hours closed
 - **The deployed site needs an API that is not deployed.** Seen live, not predicted: the public
   pages and `/book` render their copy, their skeletons and then "We couldn't load our
   treatments". Phase 11 hosting the server clears it. Until then the site is deliberately unlisted
@@ -497,6 +503,17 @@ Phase 7, closed:
 
 ## Recent Decisions
 
+- **The directory searches on the server and returns identity only.** A list that ships every
+  patient to the browser to filter there discloses the whole roster on every load. A row is name,
+  email and `hasAccount`; phone, date of birth and insurance stay on the per-patient page, the same
+  split `/api/me/profile` makes — and a list carrying them would need Record Access logging too
+- **A page is a cap, not a cursor.** 25 rows plus `truncated`, read as `take + 1` so "there is
+  more" costs no `COUNT`. A longer list is answered by narrowing the search; paging a directory
+  of names is a worse tool than typing three letters
+- **Every word must match, in the name or the email.** "elena marsh" narrows to one person rather
+  than returning every Elena and every Marsh
+- **`hasAccount`, not "walk-in".** A chart with no login is what the schema records; why it has
+  none is not something the row knows
 - **The actor-FK hazard now recurs a second time.** `treatment_records.actor_user_id` is
   hand-written, `ON DELETE SET NULL`, same shape and reason as
   `appointment_events.actor_user_id` (ADR-0006) — check for the two spurious `DROP CONSTRAINT`

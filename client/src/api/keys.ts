@@ -36,4 +36,6 @@ export const queryKeys = {
   timeOff: (providerId: string) => ['admin', 'time-off', providerId] as const,
 
   closures: () => ['admin', 'closures'] as const,
+
+  adminPatients: (q: string) => ['admin', 'patients', q] as const,
 } as const
