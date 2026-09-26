@@ -82,7 +82,7 @@ const rowsFor = (providerId: string) =>
     orderBy: [{ startMinute: 'asc' }],
   })
 
-type SeededRow = { weekday: string; startMinute: number; endMinute: number }
+type SeededRow = Awaited<ReturnType<typeof rowsFor>>[number]
 
 let server: Server | undefined
 // Captured as early as possible and restored from in `finally`, independent
